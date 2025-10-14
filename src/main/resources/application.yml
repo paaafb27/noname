@@ -1,0 +1,114 @@
+spring:
+  application:
+    name: scanDeals
+  
+  # 프로파일별 설정은 최소화
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+    
+  datasource:
+    url: jdbc:mysql://localhost:3307/scandeals?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    username: ${MYSQL_USER:scandeals}
+    password: ${MYSQL_PASSWORD:scandeals09123}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 3000
+    
+  jpa:
+    hibernate:
+      # DDL 자동 실행 모드 (환경변수로 제어)
+      # - create: 기존 테이블 삭제 후 재생성 (개발 초기)
+      # - create-drop: 종료 시 테이블 삭제 (테스트)
+      # - update: 변경사항만 반영 (개발 중) ← 로컬 기본값
+      # - validate: 스키마 검증만 (운영 준비)
+      # - none: 아무것도 안함 (운영) ← AWS 배포 시 필수
+      ddl-auto: create  #${JPA_DDL_AUTO:update} # 운영: validate, 개발: update
+    properties:
+      hibernate:
+        format_sql: true
+        show-sql: ${SHOW_SQL:true}
+        # MySQL 8 전용 SQL 방언 - MySQL 8의 최신 기능 활용
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    # OSIV(Open Session In View) 비활성화
+    # false: 트랜잭션 범위에서만 영속성 컨텍스트 유지 (권장)
+    # - 장점: 명확한 트랜잭션 경계, 성능 향상
+    # - 단점: 지연 로딩 사용 시 LazyInitializationException 발생 가능
+    # true: 뷰 렌더링까지 영속성 유지 (편하지만 성능 저하)
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:redis1234}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+              
+  # Thymeleaf 설정
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    cache: ${TEMPLATE_CACHE:false}  # 개발: false, 운영: true  
+    check-template-location: false
+
+# 서버 설정
+server:
+  port: 8080
+  compression:
+    enabled: true
+    min-response-size: 1024
+    mime-types: text/html,text/css,application/json      
+ 
+# =========================================
+# Swagger/OpenAPI 문서화 설정
+# =========================================
+springdoc:
+  # OpenAPI 3.0 스펙 JSON 문서 경로
+  # 접속: http://localhost:8080/api-docs
+  api-docs:
+    path: /api-docs
+    # API 문서 활성화 여부 (운영에서는 비활성화 가능)
+    enabled: ${SWAGGER_ENABLED:true}
+  
+  # Swagger UI 설정 (API 테스트 화면)
+  swagger-ui:
+    # Swagger UI 접속 경로
+    # 접속: http://localhost:8080/swagger-ui.html
+    path: /swagger-ui.html
+    # API 정렬 방식
+    # - method: HTTP 메서드별 정렬 (GET, POST, PUT, DELETE 순)
+    # - alpha: 알파벳순 정렬
+    operations-sorter: method
+    # 태그 정렬 방식
+    tags-sorter: alpha
+    # 각 API 엔드포인트를 기본적으로 펼쳐서 표시
+    doc-expansion: none
+    # 인증 정보 자동 저장 (Bearer 토큰 등)
+    persist-authorization: true
+    
+# =========================================
+# 로깅 레벨 설정
+# =========================================
+logging:
+  level:
+    root: ${LOG_LEVEL:INFO}
+    com.project.scandeals: ${APP_LOG_LEVEL:info}
+    org.springframework.security: info
+    org.hibernate.SQL: ${SQL_LOG_LEVEL:info}
+    # 바인딩 파라미터 확인 (옵션)
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+# =========================================
+# jwt 설정
+# =========================================    
+jwt:
+  # ⚠️ 중요: 최소 32자 이상의 복잡한 문자열 사용
+  secret: ${JWT_SECRET:scandeals-super-secret-key-minimum-32-characters-required-2024}
+  access-token-validity: 1800000      # 30분 (1,800초 × 1,000ms)
+  refresh-token-validity: 1209600000  # 14일 (1,209,600초 × 1,000ms)
