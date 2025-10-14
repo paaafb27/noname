@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.project.scandeals.domain.comment.dto.CommentCreateRequest;
+import com.project.scandeals.domain.comment.dto.CommentCreateRequestDTO;
 import com.project.scandeals.domain.comment.dto.CommentDTO;
 import com.project.scandeals.domain.comment.service.CommentService;
 
@@ -37,7 +37,7 @@ public class CommentController {
 	public ResponseEntity<CommentDTO> createComment (
 			@PathVariable Long saleId,
 			@AuthenticationPrincipal Long userId,
-			@RequestBody CommentCreateRequest request){
+			@RequestBody CommentCreateRequestDTO request){
 		return ResponseEntity.ok(commentService.createComment(saleId, userId, request));
 	}
 	

@@ -1,6 +1,6 @@
 package com.project.scandeals.domain.sale.dto;
 
-import com.project.scandeals.domain.sale.SourceSite;
+import com.project.scandeals.common.entity.SourceSite;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

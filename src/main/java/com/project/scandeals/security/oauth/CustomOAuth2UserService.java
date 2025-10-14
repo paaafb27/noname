@@ -9,7 +9,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
-import com.project.scandeals.domain.user.entity.AuthProvider;
+import com.project.scandeals.common.entity.AuthProvider;
 import com.project.scandeals.domain.user.entity.User;
 import com.project.scandeals.domain.user.repository.UserRepository;
 

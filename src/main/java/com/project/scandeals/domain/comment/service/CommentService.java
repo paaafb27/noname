@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.project.scandeals.domain.comment.dto.CommentCreateRequest;
+import com.project.scandeals.domain.comment.dto.CommentCreateRequestDTO;
 import com.project.scandeals.domain.comment.dto.CommentDTO;
 import com.project.scandeals.domain.comment.entity.Comment;
 import com.project.scandeals.domain.comment.repository.CommentRepository;
@@ -46,7 +46,7 @@ public class CommentService {
 	 * 댓글 작성
 	 */
 	@Transactional
-	public CommentDTO createComment (Long saleId, Long userId, CommentCreateRequest request) {
+	public CommentDTO createComment (Long saleId, Long userId, CommentCreateRequestDTO request) {
 		
 		Sale sale = saleRepository.findById(saleId)
 				.orElseThrow(() -> new IllegalArgumentException("세일정보를 찾을 수 없습니다."));
