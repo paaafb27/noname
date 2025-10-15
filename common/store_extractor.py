@@ -3,7 +3,7 @@
 """
 import re
 
-def extractor_store(title, site, article=None):
+def extract_store(title, site, article=None):
     if site == 'EOMISAE':
         # 제목 첫 단어
         first_word = title.split()[0] if title else None

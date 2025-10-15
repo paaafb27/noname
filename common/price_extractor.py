@@ -74,3 +74,20 @@ def extract_price_from_title(title):
 
     # 가격정보 X
     return None
+
+
+# 테스트
+if __name__ == "__main__":
+    test_cases = [
+        ("삼성 갤럭시 99,000원", "99,000원"),
+        ("아이폰 $899 직구", "$899"),
+        ("카메라 ¥98,000", "¥98,000"),
+        ("노트북 €799", "€799"),
+        ("무료 나눔", "무료"),
+        ("가격 문의", None),
+    ]
+
+    for title, expected in test_cases:
+        result = extract_price_from_title(title)
+        status = "✅" if result == expected else "❌"
+        print(f"{status} '{title}' → {result}")

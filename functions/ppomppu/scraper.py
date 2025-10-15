@@ -30,7 +30,7 @@ class PpomppuScraper:
         return self._scrape_with_pagination()
 
     def _scrape_with_pagination(self):
-        SITE_NAME = 'PPOMPPU'
+
         all_items = []
 
         # 1페이지 크롤링
@@ -94,9 +94,9 @@ class PpomppuScraper:
 
             try:
                 if page_num == 1:
-                    url = self.base_url
+                    url = self.url
                 else:
-                    url = f"{self.base_url}&page={page_num}"
+                    url = f"{self.url}&page={page_num}"
 
                 # 페이지 로딩
                 page.goto(
@@ -178,11 +178,11 @@ class PpomppuScraper:
 
         # 댓글 수
         reply_element = title_element.select_one('span.baseList-c')
-        reply_count = reply_element.get_text(strip=True) if reply_element else ''
+        reply_count = reply_element.get_text(strip=True) if reply_element else None
 
         # 좋아요 수
         like_element = row.title_element('td.baseList-rec')
-        like_count = like_element.get_text(strip=True) if like_element else ''
+        like_count = like_element.get_text(strip=True) if like_element else None
 
         # 이미지 url
         image_element = row.select_one('a.baseList-thumb')
