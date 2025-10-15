@@ -8,13 +8,13 @@ import json
 import os
 from datetime import time
 
-from scraper import PpomppuScraper
+from scraper import FmkoreaScraper
 from common.api_client import send_to_spring_boot
 
 # 환경 변수
 API_URL = os.environ.get('API_URL')  # Spring Boot API
 API_KEY = os.environ.get('API_KEY')  # 인증 키
-SITE_NAME = 'PPOMPPU'              # SourceSite enum 값
+SITE_NAME = 'FMKOREA'                # SourceSite enum 값
 
 ######################################################################
 
@@ -30,7 +30,7 @@ def lambda_handler(event, context):
         print(f"[{SITE_NAME}] 크롤링 시작 ...")
 
         # 1. 크롤링 실행
-        scraper = PpomppuScraper()
+        scraper = FmkoreaScraper()
         items = scraper.scrape()
 
         print(f"[{SITE_NAME}] 크롤링 완료: {len(items)}개 수집")
