@@ -6,15 +6,17 @@
 
 import json
 import os
-from datetime import time
+import sys
 
+# common 모듈
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 from scraper import PpomppuScraper
 from common.api_client import send_to_spring_boot
 
 # 환경 변수
-API_URL = os.environ.get('API_URL')  # Spring Boot API
-API_KEY = os.environ.get('API_KEY')  # 인증 키
-SITE_NAME = 'PPOMPPU'              # SourceSite enum 값
+API_URL = os.environ.get('API_URL')     # Spring Boot API
+API_KEY = os.environ.get('API_KEY')     # 인증 키
+SITE_NAME = 'PPOMPPU'                   # SourceSite enum 값
 
 ######################################################################
 
@@ -24,8 +26,6 @@ def lambda_handler(event, context):
 
     EventBridge가 10분마다 호출
     """
-    start_time = time.time()
-
     try:
         print(f"[{SITE_NAME}] 크롤링 시작 ...")
 

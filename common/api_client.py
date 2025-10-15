@@ -48,11 +48,12 @@ def send_to_spring_boot(api_url, api_key, site, items, max_retries=3):
                 result = response.json()
                 print(f"API 호출 성공: {result}")
                 return result
+
             # 실패
             else:
                 print(f"API 호출 실패 (HTTP {response.status_code}): {response.text}")
 
-                # 재시도
+                # 재시도 (5xx)
                 if 500 <= response.status_code < 600:
                     if attempt < max_retries -1:
                         wait_time = 2 ** attempt        # 지수 백오프 (1초, 2초, 4초)
@@ -94,7 +95,7 @@ def send_to_spring_boot(api_url, api_key, site, items, max_retries=3):
     - 다른 사이트는 정상 실행
     - 에러 로그 기록
     - CloudWatch 알림
-"""
+
 def lambda_handler(event, context):
     try:
         # 크롤링 실행
@@ -127,3 +128,4 @@ def lambda_handler(event, context):
                 'error': str(e)
             })
         }
+"""
