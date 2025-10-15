@@ -9,7 +9,7 @@ import os
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
-from common.price_extractor import extract_price_from_title
+from common.number_extractor import extract_price_from_title
 from common.time_filter import filter_by_time, parse_time
 
 # common 모듈

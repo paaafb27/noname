@@ -16,7 +16,8 @@ import re
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from common.time_filter import filter_by_time
-from common.price_extractor import extract_price_from_title
+from common.number_extractor import extract_price_from_title, extract_shipping_fee_from_title
+
 
 class PpomppuScraper:
 
@@ -169,8 +170,7 @@ class PpomppuScraper:
         price = extract_price_from_title(title)
 
         # 배송비
-        #shipping_fee_element = row.select_one('span.deal-delivery')
-        #shipping_fee = shipping_fee_element.get_text(strip=True) if store_element else ''
+        shipping_fee = extract_shipping_fee_from_title(title, self.source_site)
 
         # 등록 시간
         time_element = row.select_one('time.baseList-time')
@@ -178,11 +178,11 @@ class PpomppuScraper:
 
         # 댓글 수
         reply_element = title_element.select_one('span.baseList-c')
-        reply_count = reply_element.get_text(strip=True) if reply_element else None
+        reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
         like_element = row.title_element('td.baseList-rec')
-        like_count = like_element.get_text(strip=True) if like_element else None
+        like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url
         image_element = row.select_one('a.baseList-thumb')

@@ -9,6 +9,7 @@ import os
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
+from common.number_extractor import extract_number_from_text
 from common.time_filter import filter_by_time, parse_time
 
 # common 모듈
@@ -175,9 +176,8 @@ class FmkoreaScraper:
         reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 추천 수
-        # 페이지 진입 후
-        #like_element = div.side.fr span:nth-of-type(2) b
-        #like_count = like_element.get_text(strip=True) if like_element else 0
+        like_elemet = row.select_one('div.fm_best_widget._bd_pc li.li_best2_hotdeal0 span.count')
+        like_count = like_elemet.get_text(strip=True) if reply_element else 0
 
         # 이미지 url
         image_element = row.select_one('img.thumb')
@@ -191,8 +191,7 @@ class FmkoreaScraper:
             'productUrl': product_url,
             'imageUrl': image_url,
             'replyCount': reply_count,
-            #'likeCount': like_count,
+            'likeCount': like_count,
             'sourceSite': self.source_site,
             'crawledAt': time
         }
-

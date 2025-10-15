@@ -162,11 +162,11 @@ class ArcaliveScraper:
 
         # 댓글 수
         reply_element = title_element.select_one('span.info')
-        reply_count = reply_element.get_text(strip=True) if reply_element else None
+        reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 추천 수
         like_element = row.select_one('span.vcol.col-rate')
-        like_count = like_element.get_text(strip=True) if like_element else None
+        like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url
         image_element = row.select_one('a.title.preview-image')

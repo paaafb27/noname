@@ -16,7 +16,7 @@ import re
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from common.time_filter import filter_by_time
-from common.price_extractor import extract_price_from_title
+from common.number_extractor import extract_price_from_title
 
 class RuliwebScraper:
 
@@ -171,11 +171,11 @@ class RuliwebScraper:
 
         # 댓글 수
         reply_element = row.select_one('span.num_reply')
-        reply_count = reply_element.get_text(strip=True) if reply_element else ''
+        reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
         like_element = row.title_element('td.recomd')
-        like_count = like_element.get_text(strip=True) if like_element else ''
+        like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url
         image_url = None

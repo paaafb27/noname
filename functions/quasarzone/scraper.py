@@ -165,11 +165,11 @@ class QuasarzoneScraper:
 
         # 댓글 수
         reply_element = row.select_one('span.board-list-comment')
-        reply_count = reply_element.get_text(strip=True) if reply_element else None
+        reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
         like_element = row.title_element('span.num.num.tp2')
-        like_count = like_element.get_text(strip=True) if like_element else None
+        like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url
         image_element = row.select_one('a.thumb img')

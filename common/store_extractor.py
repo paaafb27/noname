@@ -4,13 +4,21 @@
 import re
 
 def extract_store(title, site, article=None):
-    if site == 'EOMISAE':
+    if "EOMISAE" in site:
         # 제목 첫 단어
         first_word = title.split()[0] if title else None
         if first_word:
             return clean_store_name(first_word)
 
-    return '기타'
+    elif "QUASARZONE" in site:
+        # 제목 : [판매처] 상품명
+        match = re.search(r'^\[(.+?)\]', title)
+        if match:
+            store = match.group(1).strip()
+            return clean_store_name(store)
+
+    else:
+        return '기타'
 
 def clean_store_name(name):
     if not name:
