@@ -5,6 +5,7 @@ URL: https://bbs.ruliweb.com/market/board/1020
 필터링: notice, company, best 클래스 제외
 판매처: <span class="subject_tag"> 또는 제목에서 추출
 """
+import datetime
 
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
@@ -15,8 +16,9 @@ import re
 # common 모듈
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from common.time_filter import filter_by_time
-from common.number_extractor import extract_price_from_title
+from common.filter_by_regtime import filter_by_time, parse_time
+from common.number_extractor import extract_price_from_title, extract_shipping_fee_from_title
+
 
 class RuliwebScraper:
 
@@ -24,46 +26,57 @@ class RuliwebScraper:
         self.url = 'https://bbs.ruliweb.com/market/board/1020'
         self.main_url = 'https://bbs.ruliweb.com'
         self.source_site = 'RULIWEB'
+        self.max_pages = 5
 
     def scrape(self):
         """페이징 크롤링 (30분 필터링)"""
         return self._scrape_with_pagination()
 
     def _scrape_with_pagination(self):
-
+        """
+        - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
+        - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
+        """
         all_items = []
+        page_num = 1
+        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
 
-        # 1페이지 크롤링
-        print("1페이지 크롤링 중...")
-        page1_items = self._scrape_page(1)
+        while page_num <= self.max_pages:
+            print(f"\n{page_num}페이지 크롤링 중...")
 
-        if not page1_items:
-            return []
+            page_items = self._scrape_page(page_num)
 
-        page1_filtered = filter_by_time(page1_items, minutes=30)
-        all_items.extend(page1_filtered)
-        print(f"1페이지: {len(page1_items)}개 → 필터링 {len(page1_filtered)}개")
+            if not page_items:
+                print(f"{page_num}페이지: 게시글 없음, 종료")
+                break
 
-        # 2페이지 확인 조건
-        if len(page1_items) > 0:
-            from datetime import datetime, timedelta
-            from time_filter import parse_time
+            # 30분 이내 작성된 게시글 필터링
+            page_filtered = filter_by_time(page_items, minutes=30)
+            all_items.extend(page_filtered)
+            print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
 
-            last_item = page1_items[-1]
+            # 다음 페이지 확인 여부 판단
+            # 원본(page_items)의 마지막 게시글 시간으로 판단
+            last_item = page_items[-1]
             last_time = parse_time(last_item.get('crawledAt', ''))
 
-            if last_time:
-                cutoff_time = datetime.now() - timedelta(minutes=30)
+            if not last_time:
+                print(f"  → 시간 파싱 실패, 크롤링 종료")
+                break
 
-                # 마지막 게시글이 30분 이내면 2페이지 확인
-                if (last_time >= cutoff_time):
-                    print("2페이지 확인")
-                    page2_items = self._scrape_page(2)
+            # 마지막 게시글 등록 시간이 30분 초과면 중단
+            if last_time < cutoff_time:
+                print(f"→ 마지막 게시글 30분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
+                break
 
-                    if page2_items:
-                        page2_filtered = filter_by_time(page2_items, minutes=30)
-                        all_items.extend(page1_filtered)
-                        print(f"2페이지: {len(page2_items)}개 → 필터링 {len(page2_filtered)}개")
+            print(f"→ 마지막 게시글 30분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
+            page_num += 1
+
+        if page_num > self.max_pages:
+            print(f"\n⚠️ 최대 페이지({self.max_pages}) 도달, 크롤링 종료")
+
+        print(f"\n✅ 총 {len(all_items)}개 수집 완료")
+        return all_items
 
     def _scrape_page(self, page_num):
         """특정 페이지 크롤링"""
@@ -130,6 +143,9 @@ class RuliwebScraper:
                         print(f"게시글 파싱 실패: {e}")
                         continue
 
+            except Exception as e:
+                print(f"  페이지 로딩 실패: {e}")
+
             finally:
                 browser.close()
 
@@ -140,14 +156,13 @@ class RuliwebScraper:
         세일정보 추출
         """
         # 제목
-        title_element = row.select_one('a.baseList-title')
+        title_element = row.select_one('a.subject_link.deco')
         if not title_element:
             return None
         title = title_element.get_text(strip=True)
 
         # URL
-        url_element = title_element.select_one('a.subject_link.deco')
-        product_url = url_element['href']
+        product_url = title_element['href']
 
         # 판매처
         # 1) element 확인
@@ -158,16 +173,19 @@ class RuliwebScraper:
         else:
             '기타'
 
+        # 카테고리
+        category_element = row.select_one('td.divsn.text_over a')
+        category = category_element.get(strip=True) if category_element else None
+
         # 가격
         price = extract_price_from_title(title)
 
         # 배송비
-        # shipping_fee_element = row.select_one('span.deal-delivery')
-        # shipping_fee = shipping_fee_element.get_text(strip=True) if store_element else ''
+        shipping_fee = extract_shipping_fee_from_title(title, self.source_site)
 
         # 등록 시간
         time_element = row.select_one('td.time')
-        time = time_element.get_text(strip=True) if time_element else ''
+        time = time_element.get_text(strip=True) if time_element else None
 
         # 댓글 수
         reply_element = row.select_one('span.num_reply')
@@ -185,7 +203,8 @@ class RuliwebScraper:
              'title': title,
             'price': price,
             'storeName': store,
-            #'shippingFee': shipping_fee,
+            'category': category,
+            'shippingFee': shipping_fee,
             'productUrl': product_url,
             'imageUrl': image_url,
             'replyCount': reply_count,

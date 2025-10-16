@@ -3,14 +3,14 @@ QUASARZONE 크롤러
 
 URL: https://quasarzone.com/bbs/qb_saleinfo
 """
-
+import datetime
 import sys
 import os
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
 from common.store_extractor import extract_store
-from common.time_filter import filter_by_time, parse_time
+from common.filter_by_regtime import filter_by_time, parse_time
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
@@ -22,50 +22,56 @@ class QuasarzoneScraper:
         self.url = 'https://quasarzone.com/bbs/qb_saleinfo'
         self.main_url = 'https://quasarzone.com'
         self.source_site = 'QUASARZONE'
+        self.max_pages = 5  # 최대 페이지 제한 (무한 루프 방지)
 
     def scrape(self):
         """페이징 크롤링 (30분 필터링)"""
         return self._scrape_with_pagination()
 
     def _scrape_with_pagination(self):
-
+        """
+        - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
+        - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
+        """
         all_items = []
+        page_num = 1
+        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
 
-        # 1페이지 크롤링
-        print("1페이지 크롤링 중...")
-        page1_items = self._scrape_page(1)
+        while page_num <= self.max_pages:
+            print(f"\n{page_num}페이지 크롤링 중...")
 
-        if not page1_items:
-            return []
+            page_items = self._scrape_page(page_num)
 
-        # 1페이지 필터링
-        page1_filtered = filter_by_time(page1_items, minutes=30)
-        all_items.extend(page1_filtered)
+            if not page_items:
+                print(f"{page_num}페이지: 게시글 없음, 종료")
+                break
 
-        print(f"1페이지: {len(page1_items)}개 → 필터링 {len(page1_filtered)}개")
+            # 30분 이내 작성된 게시글 필터링
+            page_filtered = filter_by_time(page_items, minutes=30)
+            all_items.extend(page_filtered)
+            print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
 
-        # 2페이지 확인 조건
-        if len(page1_items) > 0:
-            from datetime import datetime, timedelta
-
-            last_item = page1_items[-1]
+            # 다음 페이지 확인 여부 판단
+            # 원본(page_items)의 마지막 게시글 시간으로 판단
+            last_item = page_items[-1]
             last_time = parse_time(last_item.get('crawledAt', ''))
 
-            if last_time:
-                cutoff_time = datetime.now() - timedelta(minutes=30)
+            if not last_time:
+                print(f"  → 시간 파싱 실패, 크롤링 종료")
+                break
 
-                # 마지막 게시글이 30분 이내면 2페이지 확인
-                if last_time >= cutoff_time:
-                    print(" 2페이지 확인 필요")
-                    page2_items = self._scrape_page(2)
+            # 마지막 게시글 등록 시간이 30분 초과면 중단
+            if last_time < cutoff_time:
+                print(f"→ 마지막 게시글 30분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
+                break
 
-                    if page2_items:
-                        page2_filtered = filter_by_time(page2_items, minutes=30)
-                        all_items.extend(page2_filtered)
-                        print(f"2페이지: {len(page2_items)}개 → 필터링 {len(page2_filtered)}개")
-                else:
-                    print(" 2페이지 확인 불필요 (마지막 게시글 30분 초과)")
+            print(f"→ 마지막 게시글 30분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
+            page_num += 1
 
+        if page_num > self.max_pages:
+            print(f"\n⚠️ 최대 페이지({self.max_pages}) 도달, 크롤링 종료")
+
+        print(f"\n✅ 총 {len(all_items)}개 수집 완료")
         return all_items
 
     def _scrape_page(self, page_num):
@@ -129,6 +135,9 @@ class QuasarzoneScraper:
                         print(f"게시글 파싱 실패: {e}")
                         continue
 
+            except Exception as e:
+                print(f"  페이지 로딩 실패: {e}")
+
             finally:
                 browser.close()
 
@@ -151,20 +160,24 @@ class QuasarzoneScraper:
         # 판매처
         store = extract_store(title, self.source_site)
 
+        # 카테고리
+        category_element = row.select_one('span.category')
+        category = category_element.get_text(strip=True) if category_element else None
+
         # 가격
         price_element = row.select_one('span.text-orange')
         price = price_element.get_text(strip=True) if price_element else None
 
         # 배송비
-        shipping_fee_element = row.select_one('div.market-info-sub span:nth-of-type(4)')
+        shipping_fee_element = row.select_one('div.market-info-sub > p:first-of-type > span:last-of-type')
         shipping_fee = shipping_fee_element.get_text(strip=True) if price_element else None
 
         # 등록 시간
         time_element = row.select_one('span.date')
-        time = time_element.get_text(strip=True) if time_element else ''
+        time = time_element.get_text(strip=True) if time_element else None
 
         # 댓글 수
-        reply_element = row.select_one('span.board-list-comment')
+        reply_element = row.select_one('span.board-list-comment span.ctn-count')
         reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
@@ -179,6 +192,7 @@ class QuasarzoneScraper:
             'title': title,
             'price': price,
             'storeName': store,
+            'category': category,
             'shippingFee': shipping_fee,
             'productUrl': product_url,
             'imageUrl': image_url,

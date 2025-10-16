@@ -17,8 +17,7 @@ def extract_store(title, site, article=None):
             store = match.group(1).strip()
             return clean_store_name(store)
 
-    else:
-        return '기타'
+    return '기타'
 
 def clean_store_name(name):
     if not name:

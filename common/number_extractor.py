@@ -11,10 +11,6 @@ def extract_price_from_title(title):
     2. (5,000원) → 5000
     3. 17,800원 → 17800
     4. 5만원 → 50000
-
-    Returns:
-        int: 가격 (원 단위)
-        None: 가격 정보 없음
     """
 
     if not title:

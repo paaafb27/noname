@@ -3,13 +3,13 @@ ARCALIVE 크롤러
 
 URL: https://arca.live/b/hotdeal
 """
-
+import datetime
 import sys
 import os
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 
-from common.time_filter import filter_by_time, parse_time
+from common.filter_by_regtime import filter_by_time, parse_time
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
@@ -21,53 +21,61 @@ class ArcaliveScraper:
         self.url = 'https://arca.live/b/hotdeal'
         self.main_url = "https://arca.live"
         self.source_site = 'ARCALIVE'
+        self.max_pages = 5
 
     def scrape(self):
         """페이징 크롤링 (30분 필터링)"""
         return self._scrape_with_pagination()
 
     def _scrape_with_pagination(self):
-
+        """
+        - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
+        - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
+        """
         all_items = []
+        page_num = 1
+        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
 
-        # 1페이지 크롤링
-        print("1페이지 크롤링 중...")
-        page1_items = self._scrape_page(1)
+        while page_num <= self.max_pages:
+            print(f"\n{page_num}페이지 크롤링...")
 
-        if not page1_items:
-            return []
+            page_items = self._scrape_page(page_num)
 
-        # 1페이지 필터링
-        page1_filtered = filter_by_time(page1_items, minutes=30)
-        all_items.extend(page1_filtered)
+            if not page_items:
+                print(f"{page_num}페이지: 게시글 없음, 종료")
+                break
 
-        print(f"1페이지: {len(page1_items)}개 → 필터링 {len(page1_filtered)}개")
+            # 30분 이내 작성된 게시글 필터링
+            page_filtered = filter_by_time(page_items, minutes=30)
+            all_items.extend(page_filtered)
+            print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
 
-        # 2페이지 확인 조건
-        if len(page1_items) > 0:
-            from datetime import datetime, timedelta
-
-            last_item = page1_items[-1]
+            # 다음 페이지 확인 여부 판단
+            # 원본(page_items)의 마지막 게시글 시간으로 판단
+            last_item = page_items[-1]
             last_time = parse_time(last_item.get('crawledAt', ''))
 
-            if last_time:
-                cutoff_time = datetime.now() - timedelta(minutes=30)
+            if not last_time:
+                print(f"  → 시간 파싱 실패, 크롤링 종료")
+                break
 
-                # 마지막 게시글이 30분 이내면 2페이지 확인
-                if last_time >= cutoff_time:
-                    print("→ 2페이지 확인 필요")
-                    page2_items = self._scrape_page(2)
+            if last_time < cutoff_time:
+                print(f"→ 마지막 게시글 30분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
+                break
 
-                    if page2_items:
-                        page2_filtered = filter_by_time(page2_items, minutes=30)
-                        all_items.extend(page2_filtered)
-                        print(f"2페이지: {len(page2_items)}개 → 필터링 {len(page2_filtered)}개")
-                else:
-                    print(" 2페이지 확인 불필요 (마지막 게시글 30분 초과)")
+            print(f"→ 마지막 게시글 30분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
+            page_num += 1
 
+        if page_num > self.max_pages:
+            print(f"\n⚠️ 최대 페이지({self.max_pages}) 도달, 크롤링 종료")
+
+        print(f"\n✅ 총 {len(all_items)}개 수집\n")
         return all_items
 
     def _scrape_page(self, page_num):
+        """
+        개별 페이지 크롤링
+        """
 
         items = []
 
@@ -125,6 +133,9 @@ class ArcaliveScraper:
                         print(f"게시글 파싱 실패: {e}")
                         continue
 
+            except Exception as e:
+                print(f"  페이지 로딩 실패: {e}")
+
             finally:
                 browser.close()
 
@@ -148,6 +159,10 @@ class ArcaliveScraper:
         store_element = row.select_one('span.deal-store')
         store = store_element.get_text(strip=True) if store_element else '기타'
 
+        # 카테고리
+        category_element = row.select_one('a.badge')
+        category = category_element.get(strip=True) if category_element else None
+
         # 가격
         price_element = row.select_one('span.deal-price')
         price = price_element.get_text(strip=True) if price_element else None
@@ -158,7 +173,7 @@ class ArcaliveScraper:
 
         # 등록 시간
         time_element = row.select_one('time')
-        time = time_element.get_text(strip=True) if time_element else ''
+        time = time_element.get_text(strip=True) if time_element else None
 
         # 댓글 수
         reply_element = title_element.select_one('span.info')
@@ -169,13 +184,14 @@ class ArcaliveScraper:
         like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url
-        image_element = row.select_one('a.title.preview-image')
-        image_url = image_element['href'] if image_element else None
+        image_element = row.select_one('a.title.preview-image img')
+        image_url = image_element['src'] if image_element else None
 
         return {
             'title': title,
             'price': price,
             'storeName': store,
+            'category': category,
             'shippingFee': shipping_fee,
             'productUrl': product_url,
             'imageUrl': image_url,
