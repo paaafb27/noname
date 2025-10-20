@@ -65,7 +65,7 @@ public class SaleService {
 		Pageable pageable = PageRequest.of(
 				request.getPage(), 
 				request.getSize(), 
-				Sort.by(Sort.Direction.DESC, "created_at")
+				Sort.by("created_at").descending()
 		);
 		
 		Page<Sale> salePage = saleRepository.findAllByOrderByCreatedAtDesc(pageable);
