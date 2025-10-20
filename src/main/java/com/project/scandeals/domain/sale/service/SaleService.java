@@ -2,6 +2,7 @@ package com.project.scandeals.domain.sale.service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -105,15 +106,15 @@ public class SaleService {
 	/**
 	 * 조회수 높은 세일 조회
 	 */
-	public PageResponseDTO<SaleDTO> getMostViewedSales(Pageable pageable) {
-		
-		LocalDateTime since = LocalDateTime.now().minusHours(MINUS_HOURS);
-		Page<Sale> salePage = saleRepository.findMostViewedSales(since, pageable);
-		
-		log.info("조회수 많은 세일 조회: {}시간 내 {}건", MINUS_HOURS, salePage.getTotalElements());
-		
-		return PageResponseDTO.from(salePage.map(SaleDTO::from));
-	}
+//	public PageResponseDTO<SaleDTO> getMostViewedSales(Pageable pageable) {
+//		
+//		LocalDateTime since = LocalDateTime.now().minusHours(MINUS_HOURS);
+//		Page<Sale> salePage = saleRepository.findMostViewedSales(since, pageable);
+//		
+//		log.info("조회수 많은 세일 조회: {}시간 내 {}건", MINUS_HOURS, salePage.getTotalElements());
+//		
+//		return PageResponseDTO.from(salePage.map(SaleDTO::from));
+//	}
 	
 	/**
 	 * 댓글 많은 세일 조회
@@ -136,8 +137,17 @@ public class SaleService {
 	@Transactional
 	public Sale saveSale(Sale sale) {
 		
-		saleRepository.findByProductUrl(sale.getProductUrl()).orElseThrow();
+		// 중복 체크
+		Optional<Sale> isExist = saleRepository.findByProductUrl(sale.getProductUrl());
 		
+		if (isExist.isPresent()) {
+			log.debug("중복 세일 발견 : {}", sale.getProductUrl());
+			return isExist.get();
+		}
+		
+		Sale saveSale = saleRepository.save(sale);
+        log.info("신규 세일 저장: id={}, title={}", saveSale.getId(), saveSale.getTitle());
+
 		return saleRepository.save(sale);
 	}
 	
