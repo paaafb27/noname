@@ -64,8 +64,7 @@ public class SaleService {
 		log.info("DB 직접 조회");
 		Pageable pageable = PageRequest.of(
 				request.getPage(), 
-				request.getSize(), 
-				Sort.by("created_at").descending()
+				request.getSize()
 		);
 		
 		Page<Sale> salePage = saleRepository.findAllByOrderByCreatedAtDesc(pageable);
