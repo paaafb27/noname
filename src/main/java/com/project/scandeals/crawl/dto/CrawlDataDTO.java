@@ -1,6 +1,6 @@
 package com.project.scandeals.crawl.dto;
 
-import java.math.BigDecimal;
+
 import java.util.List;
 
 import lombok.Getter;
@@ -17,11 +17,34 @@ public class CrawlDataDTO {
 	@NoArgsConstructor
 	public static class SaleItem {
 		
-		private String title;
-        private Integer price;
+		/** 제목 */
+        private String title;
+        
+        /** 가격 */
+        private String priceStr;
+        
+        /** 판매처 */
         private String storeName;
+        
+        /** 상품 URL */
         private String productUrl;
+        
+        /** 이미지 URL */
         private String imageUrl;
+        
+        /** 출처 사이트 */
         private String sourceSite;
+        
+        /** 배송비 */
+        private String shippingFee;
+        
+        /** 댓글 수 */
+        private Integer commentCount;
+        
+        /** 추천 수 */
+        private Integer likeCount;
+        
+        /** 크롤링 시간 */
+        private String crawledAt;
 	}
 }

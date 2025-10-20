@@ -7,6 +7,7 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.project.scandeals.domain.category.entity.Category;
 
 import jakarta.persistence.Column;
@@ -58,9 +59,14 @@ public class Sale {
 	@Column(nullable = false, length = 500)
 	private String title;
 	
-	/** 가격 */
-	@Column(nullable = false)
-	private Integer price;
+	/** 가격 
+	@Column(nullable = true)
+	private Integer  price;
+	*/
+
+	/** 가격 (string) */
+	@Column(nullable = true)
+	private String  price_str;
 	
 	/** 판매처 */
 	@Column(name = "store_name", length = 100)
@@ -77,6 +83,11 @@ public class Sale {
     /** 출처 사이트 */
     @Column(name = "source_site", nullable = false, length = 50)
     private String sourceSite;
+    
+    /**
+     * 배송비 */
+    @Column(name = "shipping_fee", length = 50)
+    private String shippingFee;
 	
     /** 카테고리 */
     @ManyToOne(fetch = FetchType.LAZY)
@@ -89,12 +100,12 @@ public class Sale {
     private Integer viewCount = 0;
 
     /** 좋아요 수 */
-    @Column(name = "like_count", nullable = false)
+    @Column(name = "like_count", nullable = true)
     @Builder.Default
     private Integer likeCount = 0;
 
     /** 댓글 수 */
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Builder.Default
     private Integer commentCount = 0;
 
@@ -106,6 +117,7 @@ public class Sale {
 
     /** 생성일시 */
     @Column(name = "created_at", nullable = false, updatable = false)
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")  // ISO 8601 자동 파싱
     private LocalDateTime createdAt;
 
     /** 수정일시 */

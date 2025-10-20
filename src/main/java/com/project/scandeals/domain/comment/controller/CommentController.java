@@ -16,6 +16,9 @@ import com.project.scandeals.domain.comment.dto.CommentCreateRequestDTO;
 import com.project.scandeals.domain.comment.dto.CommentDTO;
 import com.project.scandeals.domain.comment.service.CommentService;
 
+import lombok.RequiredArgsConstructor;
+
+@RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/sales/{saleId}/comments")
 public class CommentController {

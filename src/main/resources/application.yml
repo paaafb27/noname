@@ -112,3 +112,10 @@ jwt:
   secret: ${JWT_SECRET:scandeals-super-secret-key-minimum-32-characters-required-2024}
   access-token-validity: 1800000      # 30분 (1,800초 × 1,000ms)
   refresh-token-validity: 1209600000  # 14일 (1,209,600초 × 1,000ms)
+  
+app:
+  crawl:
+    api-key: ${CRAWLER_API_KEY:test-key-for-development-only}
+  oauth2:
+    redirect-uri: ${OAUTH_REDIRECT_URI:http://localhost:8080/oauth/redirect}
+    

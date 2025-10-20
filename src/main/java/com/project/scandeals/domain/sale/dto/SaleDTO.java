@@ -1,6 +1,5 @@
 package com.project.scandeals.domain.sale.dto;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import com.project.scandeals.domain.sale.entity.Sale;
@@ -20,7 +19,8 @@ public class SaleDTO {
 
 	private Long id;						/** 세일 아이디 */
 	private String title;					/** 세일 제목 */
-	private Integer price;					/** 가격 */
+	//private Integer price;				/** 가격 (null 허용) */
+	private String price_str;				/** 가격 (null 허용) */
 	private String storeName;				/** 판매처 */
 	private String productUrl;				/** 상품 url */
 	private String imageUrl;				/** 이미지 url */
@@ -44,7 +44,7 @@ public class SaleDTO {
 		return SaleDTO.builder()
 				.id(sale.getId())
 				.title(sale.getTitle())
-				.price(sale.getPrice())
+				.price_str(sale.getPrice_str())
 				.storeName(sale.getStoreName())
 				.productUrl(sale.getProductUrl())
 				.imageUrl(sale.getImageUrl())
