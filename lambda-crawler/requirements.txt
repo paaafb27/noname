@@ -1,0 +1,5 @@
+# Playwright는 이미 Docker 이미지에 포함됨 (설치 불필요)
+beautifulsoup4==4.12.2
+lxml==4.9.3
+requests==2.31.0
+awslambdaric==2.0.7
