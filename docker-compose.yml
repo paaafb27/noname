@@ -1,0 +1,61 @@
+#version: '3.8'
+
+services:
+
+#  spring-boot:
+#    environment:
+#        - JWT_SECRET=your-production-secret-key-at-least-32-characters-long-2024-secure    
+    
+  mysql:
+    image: mysql:8.0
+    container_name: scandeals-mysql
+    # restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root #${MYSQL_ROOT_PASSWORD:root}
+      MYSQL_DATABASE: scandeals #${MYSQL_DATABASE:scandeals}
+      MYSQL_USER: scandeals #${MYSQL_USER:scandeals}
+      MYSQL_PASSWORD: scandeals09123 #${MYSQL_PASSWORD:scandeals09123}
+      TZ: Asia/Seoul
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    networks:
+      - scandeals-network
+    healthcheck:
+        test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+  # Redis 캐시
+  redis:
+    image: redis:7-alpine
+    container_name: scandeals-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis1234} --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - scandeals-network
+    healthcheck:
+        test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis1234}", "ping"]
+        interval: 10s
+        timeout: 3s
+        retries: 5
+        
+volumes:
+  mysql_data:
+    # driver: local
+  redis_data:
+    # driver: local
+
+networks:
+  scandeals-network:
+    driver: bridge
