@@ -102,18 +102,6 @@ public class SaleService {
 		return PageResponseDTO.from(salePage.map(SaleDTO::from));
 	}
 	
-	/**
-	 * 조회수 높은 세일 조회
-	 */
-//	public PageResponseDTO<SaleDTO> getMostViewedSales(Pageable pageable) {
-//		
-//		LocalDateTime since = LocalDateTime.now().minusHours(MINUS_HOURS);
-//		Page<Sale> salePage = saleRepository.findMostViewedSales(since, pageable);
-//		
-//		log.info("조회수 많은 세일 조회: {}시간 내 {}건", MINUS_HOURS, salePage.getTotalElements());
-//		
-//		return PageResponseDTO.from(salePage.map(SaleDTO::from));
-//	}
 	
 	/**
 	 * 댓글 많은 세일 조회
