@@ -147,7 +147,7 @@ public class SaleService {
 		Sale saveSale = saleRepository.save(sale);
         log.info("신규 세일 저장: id={}, title={}", saveSale.getId(), saveSale.getTitle());
 
-		return saleRepository.save(sale);
+		return saveSale;
 	}
 	
 	

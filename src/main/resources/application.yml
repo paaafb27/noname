@@ -57,13 +57,35 @@ spring:
     cache: ${TEMPLATE_CACHE:false}  # 개발: false, 운영: true  
     check-template-location: false
 
+# OAuth 2.0 설정 (Google)
+security:
+  oauth2:
+    client:
+      registration:
+        google:
+          client-id: ${GOOGLE_CLIENT_ID}
+          client-secret: ${GOOGLE_CLIENT_SECRET}
+          scope:
+            - email
+            - profile
+          redirect-uri: http://localhost:8080/login/oauth2/code/google
+      provider:
+        google:
+          authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+          token-uri: https://oauth2.googleapis.com/token
+          user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
+          user-name-attribute: sub    
+    
 # 서버 설정
 server:
   port: 8080
-  compression:
-    enabled: true
-    min-response-size: 1024
-    mime-types: text/html,text/css,application/json      
+  sevlet:
+    session:
+      timeout: 1800   # 세션 30분
+#  compression:
+#    enabled: true
+#    min-response-size: 1024
+#    mime-types: text/html,text/css,application/json      
  
 # =========================================
 # Swagger/OpenAPI 문서화 설정

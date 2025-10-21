@@ -46,6 +46,9 @@ public class User {
 	@Column(nullable = false, length = 50)
 	private String nickname;
 	
+    @Column(length = 255)
+    private String password;  // BCrypt 암호화된 비밀번호
+	
 //	@Column(length = 500)
 //	private String profileImage;
 	
