@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.project.scandeals.domain.saleLike.service.SaleLikeService;
+import com.project.scandeals.security.oauth.CustomOAuth2User;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,8 +26,9 @@ public class SaleLikeController {
 	@PostMapping
 	public ResponseEntity<Boolean> toggleLike(
 			@PathVariable Long saleId,
-	        @AuthenticationPrincipal Long userId
-			) {
+            @AuthenticationPrincipal CustomOAuth2User oAuth2User) {
+		
+		Long userId = oAuth2User.getUser().getId();
 		boolean liked = saleLikeService.toggleLike(saleId, userId);
 		return ResponseEntity.ok(liked);
 	}
@@ -36,11 +38,11 @@ public class SaleLikeController {
 	 */
 	@GetMapping
     public ResponseEntity<Boolean> isLiked(
-        @PathVariable Long saleId,
-        @AuthenticationPrincipal Long userId
-    ) {
+            @PathVariable Long saleId,
+            @AuthenticationPrincipal CustomOAuth2User oAuth2User) {
+        
+        Long userId = oAuth2User.getUser().getId();
         return ResponseEntity.ok(saleLikeService.isLiked(saleId, userId));
     }
-	
 	
 }

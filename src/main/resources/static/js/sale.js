@@ -1,10 +1,14 @@
 /**
- * 세일 목록
+ * 세일 목록 로드 및 렌더링
  */
+
 let currentPage = 0;
 const pageSize = 12;
 
-async function loadSaleList(page = 0) {
+/**
+ * 세일 목록 로드
+ */
+async function loadSales(page = 0) {
     const loading = document.getElementById('loading');
     const saleList = document.getElementById('saleList');
     
@@ -13,19 +17,16 @@ async function loadSaleList(page = 0) {
     saleList.style.display = 'none';
     
     try {
-        // 필터 조건
-        const sourceSites = Array.from(document.querySelectorAll('.filter-section input[type="checkbox"]:checked'))
-            .filter(cb => cb.value)
-            .map(cb => cb.value )
-            
-        const categories = Array.from(document.querySelectorAll('.filter-section input[id^="cat-"]::checked'))
-            .filter(cb => cb.value)
-            .map(cb => cb.value);
-            
-        const minPrice = document.getElementById('minPrice').value || 0;
-        const maxPrice = document.getElementById('maxPrice').value || 10000000;
+        // 필터 조건 수집
+        const sourceSites = Array.from(
+            document.querySelectorAll('input[type="checkbox"][id^="site-"]:checked')
+        ).map(cb => cb.value);
         
-        // API 호출
+        const minPrice = document.getElementById('minPrice')?.value || 0;
+        const maxPrice = document.getElementById('maxPrice')?.value || 10000000;
+        const sortBy = document.getElementById('sortBy')?.value || 'latest';
+        
+        // URL 파라미터 생성
         const params = new URLSearchParams({
             page: page,
             size: pageSize,
@@ -34,25 +35,37 @@ async function loadSaleList(page = 0) {
             maxPrice: maxPrice
         });
         
-        sourceSites.forEach(s => params.append('sources', s));
-        categories.forEach(c => params.append('categories', c));
+        // 소스 사이트 추가
+        sourceSites.forEach(site => params.append('sources', site));
         
-        const response = await fetch('/api/sales?${params.toString()}');
+        // API 호출
+        const response = await fetch(`/api/sales?${params.toString()}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
-        // 목록
-        loadSaleList(data.content);
-        loadPagination(data);
+        // 세일 카드 렌더링
+        renderSaleCards(data.content);
+        
+        // 페이지네이션 렌더링
+        renderPagination(data);
         
         // 총 개수 업데이트
-        document.getElementById('totalCount').textContent = data.totalElements;
+        document.getElementById('totalCount').textContent = data.totalElements || 0;
         
         currentPage = page;
-            
-    } catch (error) {
-        console.log('세일 목록 로드 실패 : ', error);
-        saleList.innerHTML = '<div class="col-12 text-center py-5"><p class="text-danger">데이터를 불러올 수 없습니다.</p></div>';
         
+    } catch (error) {
+        console.error('세일 목록 로드 실패:', error);
+        saleList.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <p class="text-danger">데이터를 불러올 수 없습니다.</p>
+                <p class="text-muted">${error.message}</p>
+            </div>
+        `;
     } finally {
         loading.style.display = 'none';
         saleList.style.display = 'flex';
@@ -62,98 +75,110 @@ async function loadSaleList(page = 0) {
 /**
  * 세일 카드 렌더링
  */
-function loadSaleList(sales) {
+function renderSaleCards(sales) {
     const saleList = document.getElementById('saleList');
     
-    if (sales.length === 0) {
-        saleList.innerHTML = '<div class="col-12 text-center py-5"><p class="text-muted">검색 결과가 없습니다.</p></div>';
+    if (!sales || sales.length === 0) {
+        saleList.innerHTML = `
+            <div class="col-12 text-center py-5">
+                <p class="text-muted">검색 결과가 없습니다.</p>
+            </div>
+        `;
         return;
     }
     
-    saleList.innerHTML = sales.map(sale => `
-        <div class="col-lg-4 col-md-6">
-            <div class="sale-card position-relative">
-                <span class="sale-source-badge">${sale.sourceSite}</span>
-                    <a href="/sales/${sale.id}">
-                        <img src="${sale.imageUrl || '/images/no-image.png'}" 
-                             class="sale-card-img" alt="${sale.title}" loading="lazy">
+    // SVG Data URL (외부 요청 없음)
+    const noImageSvg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+    
+    saleList.innerHTML = sales.map(sale => {
+        // 이미지 URL (없으면 SVG Data URL)
+        const imageUrl = sale.imageUrl || noImageSvg;
+        
+        return `
+        <div class="col-lg-3 col-md-4 col-sm-6">
+            <div class="sale-card">
+                <span class="sale-source-badge">${sale.sourceSite || '알 수 없음'}</span>
+                <a href="${sale.productUrl}" target="_blank">
+                    <img src="${imageUrl}" 
+                         class="sale-card-img" 
+                         alt="${escapeHtml(sale.title)}" 
+                         loading="lazy"
+                         onerror="this.src='${noImageSvg}'">
+                </a>
+                <div class="sale-card-body">
+                    <a href="${sale.productUrl}" target="_blank" class="text-decoration-none">
+                        <h5 class="sale-title">${escapeHtml(sale.title)}</h5>
                     </a>
-                    <div class="sale-card-body">
-                        <a href="/sales/${sale.id}" class="text-decoration-none">
-                            <h5 class="sale-title">${escapeHtml(sale.title)}</h5>
-                        </a>
-                        <div class="sale-price">${formatPrice(sale.price)}</div>
-                        <div class="sale-store">
-                            <i class="bi bi-shop"></i> ${sale.storeName}
-                        </div>
-                        <div class="sale-meta">
-                            <span><i class="bi bi-eye"></i> ${formatNumber(sale.viewCount)}</span>
-                            <span><i class="bi bi-heart"></i> ${formatNumber(sale.likeCount)}</span>
-                            <span><i class="bi bi-chat"></i> ${formatNumber(sale.commentCount)}</span>
-                            <span>${formatDate(sale.createdAt)}</span>
-                        </div>
+                    <div class="sale-price">${sale.price_str || '가격 문의'}</div>
+                    <div class="sale-store">
+                        <i class="bi bi-shop"></i> ${escapeHtml(sale.storeName || '정보 없음')}
                     </div>
+                    <div class="sale-meta">
+                        <span><i class="bi bi-heart"></i> ${formatNumber(sale.likeCount || 0)}</span>
+                        <span><i class="bi bi-chat"></i> ${formatNumber(sale.commentCount || 0)}</span>
+                        <span>${formatDate(sale.createdAt)}</span>
+                    </div>
+                </div>
             </div>
-        </div>`
-    ).join('');
+        </div>
+        `;
+    }).join('');
 }
 
 /**
- * 페이지네이션
+ * 페이지네이션 렌더링
  */
-function loadPagination(data) {
+function renderPagination(data) {
     const pagination = document.getElementById('pagination');
-    const totalPages = data.totalPages;
-    const currentPage = data.number;
+    const totalPages = data.totalPages || 0;
+    const currentPage = data.number || 0;
     
     if (totalPages <= 1) {
         pagination.innerHTML = '';
         return;
     }
     
-    let html = '<ul class="pagination">';
+    let html = '<ul class="pagination justify-content-center">';
     
     // 이전 버튼
-    html += `<li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
-                <a class="page-link" href="#" onclick="loadSaleList(${currentPage - 1}); return false;">이전</a>
-            </li>`;
+    html += `
+        <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadSales(${currentPage - 1}); return false;">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+        </li>
+    `;
     
     // 페이지 번호
     const startPage = Math.max(0, currentPage - 2);
     const endPage = Math.min(totalPages - 1, startPage + 4);
     
     for (let i = startPage; i <= endPage; i++) {
-        html += `<li class="page-item ${i === currentPage ? 'active' : ''}">
-                    <a class="page-link" href="#" onclick="loadSaleList(${i}); return false;">${i + 1}</a>
-                </li>`;
+        html += `
+            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                <a class="page-link" href="#" onclick="loadSales(${i}); return false;">
+                    ${i + 1}
+                </a>
+            </li>
+        `;
     }
     
     // 다음 버튼
-    html += `<li class="page-item ${currentPage === totalPages - 1 ? 'disabled' : ''}">
-                <a class="page-link" href="#" onclick="loadSales(${currentPage + 1}); return false;">다음</a>
-            </li>`;
-        
+    html += `
+        <li class="page-item ${currentPage >= totalPages - 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadSales(${currentPage + 1}); return false;">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+        </li>
+    `;
+    
     html += '</ul>';
     pagination.innerHTML = html;
 }
 
 /**
- * 필터 초기화
+ * 숫자 포맷 (콤마)
  */
-function resetFilters() {
-    document.querySelectorAll('.form-check-input').forEach(cb => {
-        if (cb.id === 'cat-all' || cb.id.startsWith('ruliweb') || cb.id.startsWith('ppomppu') 
-            || cb.id.startsWith('arcalive') || cb.id.startsWith('eomisae') || cb.id.startsWith('fmkorea')
-            || cb.id.startsWith('quasarzone')) { 
-            cb.checked = true;
-        } else {
-            cb.checked = false;
-        }
-    });
-    
-    document.getElementById('minPrice').value = 0;
-        document.getElementById('maxPrice').value = 10000000;
-        document.getElementById('sortBy').value = 'latest';
-        
-        loadSaleList(0);
+function formatNumber(num) {
+    return new Intl.NumberFormat('ko-KR').format(num || 0);
 }

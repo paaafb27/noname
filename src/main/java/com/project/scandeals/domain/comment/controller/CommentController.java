@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.project.scandeals.domain.comment.dto.CommentCreateRequestDTO;
 import com.project.scandeals.domain.comment.dto.CommentDTO;
 import com.project.scandeals.domain.comment.service.CommentService;
+import com.project.scandeals.security.oauth.CustomOAuth2User;
 
 import lombok.RequiredArgsConstructor;
 
@@ -39,8 +40,10 @@ public class CommentController {
 	@PostMapping
 	public ResponseEntity<CommentDTO> createComment (
 			@PathVariable Long saleId,
-			@AuthenticationPrincipal Long userId,
+            @AuthenticationPrincipal CustomOAuth2User oAuth2User,
 			@RequestBody CommentCreateRequestDTO request){
+		
+		Long userId = oAuth2User.getUser().getId();
 		return ResponseEntity.ok(commentService.createComment(saleId, userId, request));
 	}
 	
@@ -51,8 +54,10 @@ public class CommentController {
 	public ResponseEntity<Void> deleteComment(
 			@PathVariable Long saleId,
 	        @PathVariable Long commentId,
-	        @AuthenticationPrincipal Long userId) {
-		commentService.deleteComment(commentId, userId);
+            @AuthenticationPrincipal CustomOAuth2User oAuth2User) {
+		
+		Long userId = oAuth2User.getUser().getId();
+        commentService.deleteComment(commentId, userId);
 		return ResponseEntity.noContent().build(); 
 	}
 }

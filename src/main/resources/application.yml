@@ -24,7 +24,7 @@ spring:
       # - update: 변경사항만 반영 (개발 중) ← 로컬 기본값
       # - validate: 스키마 검증만 (운영 준비)
       # - none: 아무것도 안함 (운영) ← AWS 배포 시 필수
-      ddl-auto: create  #${JPA_DDL_AUTO:update} # 운영: validate, 개발: update
+      ddl-auto: ${JPA_DDL_AUTO:update} # 운영: validate, 개발: update
     properties:
       hibernate:
         format_sql: true
@@ -58,28 +58,23 @@ spring:
     check-template-location: false
 
 # OAuth 2.0 설정 (Google)
-security:
-  oauth2:
-    client:
-      registration:
-        google:
-          client-id: ${GOOGLE_CLIENT_ID}
-          client-secret: ${GOOGLE_CLIENT_SECRET}
-          scope:
-            - email
-            - profile
-          redirect-uri: http://localhost:8080/login/oauth2/code/google
-      provider:
-        google:
-          authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-          token-uri: https://oauth2.googleapis.com/token
-          user-info-uri: https://www.googleapis.com/oauth2/v2/userinfo
-          user-name-attribute: sub    
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID:577232495691-vuus1um7h1tbmbtqa459evg8m9rbql87.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET: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}
+            redirect-uri: http://localhost:8080/login/oauth2/code/google
+            scope:
+              - email
+              - profile
+        
     
 # 서버 설정
 server:
   port: 8080
-  sevlet:
+  servlet:
     session:
       timeout: 1800   # 세션 30분
 #  compression:

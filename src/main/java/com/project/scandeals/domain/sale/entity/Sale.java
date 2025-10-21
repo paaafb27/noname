@@ -38,8 +38,7 @@ import lombok.NoArgsConstructor;
 			@Index(name = "idx_created_at", columnList = "created_at DESC"),
 			@Index(name = "idx_source_site", columnList = "source_site"),
 			@Index(name = "idx_category", columnList = "category_id"),
-			@Index(name = "idx_like_count", columnList = "like_count DESC"),
-			@Index(name = "idx_view_count", columnList = "view_count DESC")
+			@Index(name = "idx_like_count", columnList = "like_count DESC")
 	},
 		uniqueConstraints = {
 			@UniqueConstraint(name = "uk_product_url", columnNames = "product_url")
