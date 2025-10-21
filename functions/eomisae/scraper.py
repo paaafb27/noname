@@ -4,11 +4,16 @@ EOMISAE 크롤러
 URL: https://eomisae.co.kr/
 """
 import datetime
-import re
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 import sys
 import os
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+import re
 
 from common.number_extractor import extract_price_from_title
 from common.filter_by_regtime import filter_by_time, parse_time
@@ -41,7 +46,10 @@ class EomisaeScraper:
         return all_items
 
     def _scrape_with_pagination(self, url):
-
+        """
+        - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
+        - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
+        """
         all_items = []
         page_num = 1
         cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
@@ -87,83 +95,81 @@ class EomisaeScraper:
         """특정 페이지 크롤링"""
         items = []
 
-        with sync_playwright() as p:
-            # 브라우저 실행
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-blink-features=AutomationControlled'
-                ]
-            )
-            page = browser.new_page()
+        items = []
 
-            # image/css 차단 for 속도 향상
-            page.route(
-                "**/*.{png,jpg,jpeg,gif,svg,webp,css,woff,woff2}",
-                lambda route: route.abort()
-            )
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--single-process')
+        options.binary_location = '/opt/chrome/chrome'  # Lambda Chrome 경로
 
-            try:
-                # 페이지 URL
-                if page_num == 1:
-                    url = targetUrl
+        driver = webdriver.Chrome(
+            executable_path='/opt/chromedriver',
+            options=options
+        )
+
+        # image/css 차단 for 속도 향상
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
+
+        try:
+            # 페이지 URL
+            if page_num == 1:
+                url = targetUrl
+            else:
+                if 'os' in targetUrl:   # 패션
+                    url = f"https://eomisae.co.kr/index.php?mid=os&page={page_num}"
                 else:
-                    if 'os' in targetUrl:   # 패션
-                        url = f"https://eomisae.co.kr/index.php?mid=os&page={page_num}"
-                    else:
-                        url = f"https://eomisae.co.kr/index.php?mid=rt&page={page_num}"
+                    url = f"https://eomisae.co.kr/index.php?mid=rt&page={page_num}"
 
-                # 페이지 로딩
-                page.goto(
-                    url,
-                    timeout=30000,
-                    wait_until='domcontentloaded'
-                )
+            driver.get(url)
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
+            )
 
-                # 테이블 로딩 대기
-                page.wait_for_selector('div.card_el', timeout=10000)
+            # HTML 파싱
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'lxml')
 
-                # HTML 파싱
-                html = page.content()
-                soup = BeautifulSoup(html, 'lxml')
+            # 게시글 목록
+            cards = soup.select('div.card_el.n_ntc.clear')
+            print(f"게시글 {len(cards)}개 발견")
 
-                # 게시글 목록
-                cards = soup.select('div.card_el.n_ntc.clear')
-                print(f"게시글 {len(cards)}개 발견")
+            for card in cards:
+                try:
+                    # 필터링
+                    title_element = card.locator('a.pjax')
+                    title = title_element.get_text(strip=True)
 
-                for card in cards:
-                    try:
-                        # 필터링
-                        title_element = card.locator('a.pjax')
-                        title = title_element.get_text(strip=True)
-
-                        # 레벨 미달 제외
-                        if re.search(r'\d+분\s*뒤\s*전체\s*공개로\s*전환됩니다', title):
-                            print(f"[어미새] 레벨 미달 제외: {title[:40]}...")
-                            continue
-                        # "미달 조건 : 레벨" 패턴
-                        elif '미달 조건' in title and '레벨' in title:
-                            print(f"[어미새] 레벨 미달 제외: {title[:40]}...")
-                            continue
-
-                        # 데이터 추출
-                        item = self._extract_item(card)
-                        if item:
-                            items.append(item)
-
-                    except Exception as e:
-                        print(f"게시글 파싱 실패: {e}")
+                    # 레벨 미달 제외
+                    if re.search(r'\d+분\s*뒤\s*전체\s*공개로\s*전환됩니다', title):
+                        print(f"[어미새] 레벨 미달 제외: {title[:40]}...")
+                        continue
+                    # "미달 조건 : 레벨" 패턴
+                    elif '미달 조건' in title and '레벨' in title:
+                        print(f"[어미새] 레벨 미달 제외: {title[:40]}...")
                         continue
 
-            except Exception as e:
-                print(f"    페이지 로딩 실패: {e}")
+                    # 데이터 추출
+                    item = self._extract_item(card)
+                    if item:
+                        items.append(item)
 
-            finally:
-                browser.close()
+                except Exception as e:
+                    print(f"게시글 파싱 실패: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"    페이지 로딩 실패: {e}")
+
+        finally:
+            driver.quit()
 
         return items
 

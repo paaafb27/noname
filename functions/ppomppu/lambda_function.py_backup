@@ -7,22 +7,16 @@
 import json
 import os
 import sys
-from datetime import datetime
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from bs4 import BeautifulSoup
-import requests
 
-from scraper import EomisaeScraper
+# common 모듈
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+from scraper import PpomppuScraper
 from common.api_client import send_to_spring_boot
 
 # 환경 변수
-API_URL = os.environ.get('API_URL')  # Spring Boot API
-API_KEY = os.environ.get('API_KEY')  # 인증 키
-SITE_NAME = 'EOMISAE'              # SourceSite enum 값
+API_URL = os.environ.get('API_URL')     # Spring Boot API
+API_KEY = os.environ.get('API_KEY')     # 인증 키
+SITE_NAME = 'PPOMPPU'                   # SourceSite enum 값
 
 ######################################################################
 
@@ -36,7 +30,7 @@ def lambda_handler(event, context):
         print(f"[{SITE_NAME}] 크롤링 시작 ...")
 
         # 1. 크롤링 실행
-        scraper = EomisaeScraper()
+        scraper = PpomppuScraper()
         items = scraper.scrape()
 
         print(f"[{SITE_NAME}] 크롤링 완료: {len(items)}개 수집")
@@ -58,7 +52,6 @@ def lambda_handler(event, context):
                     'success': True,
                     'site': SITE_NAME,
                     'total_items': len(items),
-                    'crawled_at': datetime.now().isoformat(),
                     'api_result': result
                 }, ensure_ascii=False)
             }

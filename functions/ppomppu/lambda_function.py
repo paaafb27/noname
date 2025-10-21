@@ -7,6 +7,14 @@
 import json
 import os
 import sys
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
+import requests
 
 # common 모듈
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
@@ -43,7 +51,6 @@ def lambda_handler(event, context):
                 site = SITE_NAME,
                 items = items
             )
-
             print(f"API 전송 완료 : {result}")
 
             return {
@@ -52,6 +59,7 @@ def lambda_handler(event, context):
                     'success': True,
                     'site': SITE_NAME,
                     'total_items': len(items),
+                    'crawled_at': datetime.now().isoformat(),
                     'api_result': result
                 }, ensure_ascii=False)
             }

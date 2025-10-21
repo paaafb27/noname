@@ -6,7 +6,8 @@
 
 import json
 import os
-from datetime import time
+import sys
+from datetime import datetime
 
 from scraper import FmkoreaScraper
 from common.api_client import send_to_spring_boot
@@ -24,7 +25,6 @@ def lambda_handler(event, context):
 
     EventBridge가 10분마다 호출
     """
-    start_time = time.time()
 
     try:
         print(f"[{SITE_NAME}] 크롤링 시작 ...")
@@ -52,6 +52,7 @@ def lambda_handler(event, context):
                     'success': True,
                     'site': SITE_NAME,
                     'total_items': len(items),
+                    'crawled_at': datetime.now().isoformat(),
                     'api_result': result
                 }, ensure_ascii=False)
             }

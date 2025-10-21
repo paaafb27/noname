@@ -4,10 +4,16 @@ ARCALIVE 크롤러
 URL: https://arca.live/b/hotdeal
 """
 import datetime
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 import sys
 import os
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+import re
 
 from common.filter_by_regtime import filter_by_time, parse_time
 
@@ -79,67 +85,71 @@ class ArcaliveScraper:
 
         items = []
 
-        with sync_playwright() as p:
-            # 브라우저 실행
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-blink-features=AutomationControlled'
-                ]
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--single-process')
+        options.binary_location = '/opt/chrome/chrome'  # Lambda Chrome 경로
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
+
+        driver = webdriver.Chrome(
+            executable_path='/opt/chromedriver',
+            options=options
+        )
+
+        # image/css 차단 for 속도 향상
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
+
+        try:
+            # 페이지 URL
+            if page_num == 1:
+                url = self.url
+            else:
+                url = f"{self.url}&p={page_num}"
+
+            # 페이지 로딩
+            driver.get(url)
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
-            page = browser.new_page()
 
-            # image/css 차단 for 속도 향상
-            page.route(
-                "**/*.{png,jpg,jpeg,gif,svg,webp,css,woff,woff2}",
-                lambda route: route.abort()
-            )
+            # HTML 파싱
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'lxml')
 
-            try:
-                # 페이지 URL
-                if page_num == 1:
-                    url = self.url
-                else:
-                    url = f"{self.url}&p={page_num}"
+            # 게시글 목록
+            rows = soup.select('div.list-table.hybrid div.vrow.hybrid')
+            print(f"페이지 {page_num}: {len(rows)}개 발견")
 
-                # 페이지 로딩
-                page.goto(
-                    url,
-                    timeout=30000,
-                    wait_until='domcontentloaded'
-                )
-                # 테이블 로딩 대기
-                page.wait_for_selector('div.list-table.hybrid', timeout=10000)
+            for row in rows:
+                try:
+                    item = self._extract_item(row)
+                    if item:
+                        items.append(item)
 
-                # HTML 파싱
-                html = page.content()
-                soup = BeautifulSoup(html, 'lxml')
+                except Exception as e:
+                    print(f"게시글 파싱 실패: {e}")
+                    continue
 
-                # 게시글 목록
-                rows = soup.select('div.list-table.hybrid div.vrow.hybrid')
-                print(f"페이지 {page_num}: {len(rows)}개 발견")
+        except Exception as e:
+            print(f"  페이지 로딩 실패: {e}")
 
-                for row in rows:
-                    try:
-                        item = self._extract_item(row)
-                        if item:
-                            items.append(item)
+        finally:
+            driver.quit()
 
-                    except Exception as e:
-                        print(f"게시글 파싱 실패: {e}")
-                        continue
-
-            except Exception as e:
-                print(f"  페이지 로딩 실패: {e}")
-
-            finally:
-                browser.close()
-
-            return items
+        return items
 
     def _extract_item(self, row):
         """

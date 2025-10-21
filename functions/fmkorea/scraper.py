@@ -4,10 +4,16 @@ FMKOREA 크롤러
 URL: https://www.fmkorea.com/hotdeal
 """
 import datetime
+
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 import sys
 import os
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+import re
 
 from common.number_extractor import extract_number_from_text
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
@@ -37,6 +43,7 @@ class FmkoreaScraper:
         """
         - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
         - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
+        """
 
         all_items = []
         page_num = 1
@@ -78,74 +85,69 @@ class FmkoreaScraper:
 
         print(f"\n✅ 총 {len(all_items)}개 수집 완료")
         return all_items
-        """
+
 
     def _scrape_page(self, page_num):
 
         items = []
 
-        with sync_playwright() as p:
-            # 브라우저 실행
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-blink-features=AutomationControlled'
-                    '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-                ]
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--single-process')
+        options.binary_location = '/opt/chrome/chrome'  # Lambda Chrome 경로
+
+        driver = webdriver.Chrome(
+            executable_path='/opt/chromedriver',
+            options=options
+        )
+
+        # image/css 차단 for 속도 향상
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
+
+        try:
+            # 페이지 URL
+            if page_num == 1:
+                url = self.url
+            else:
+                url = f"{self.main_url}/index.php?mid=hotdeal&page={page_num}"
+
+            driver.get(url)
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
-            page = browser.new_page()
 
-            # image/css 차단 for 속도 향상
-            page.route(
-                "**/*.{png,jpg,jpeg,gif,svg,webp,css,woff,woff2}",
-                lambda route: route.abort()
-            )
+            # HTML 파싱
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'lxml')
 
-            try:
-                # 페이지 URL
-                if page_num == 1:
-                    url = self.url
-                else:
-                    url = f"{self.main_url}/index.php?mid=hotdeal&page={page_num}"
+            # 게시글 목록
+            rows = soup.select('div.fm_best_widget._bd_pc li.li_best2_hotdeal0')
+            print(f"게시글 {len(rows)}개 발견")
 
-                # 페이지 로딩
-                page.goto(
-                    url,
-                    timeout=30000,
-                    wait_until='domcontentloaded'
-                )
+            for row in rows:
+                try:
+                    # 데이터 추출
+                    item = self._extract_item(row)
+                    if item:
+                        items.append(item)
 
-                # 테이블 로딩 대기
-                page.wait_for_selector('div.fm_best_widget._bd_pc', timeout=10000)
+                except Exception as e:
+                    print(f"게시글 파싱 실패: {e}")
+                    continue
 
-                # HTML 파싱
-                html = page.content()
-                soup = BeautifulSoup(html, 'lxml')
+        except Exception as e:
+            print(f"  페이지 로딩 실패: {e}")
 
-                # 게시글 목록
-                rows = soup.select('div.fm_best_widget._bd_pc li.li_best2_hotdeal0')
-                print(f"게시글 {len(rows)}개 발견")
-
-                for row in rows:
-                    try:
-                        # 데이터 추출
-                        item = self._extract_item(row)
-                        if item:
-                            items.append(item)
-
-                    except Exception as e:
-                        print(f"게시글 파싱 실패: {e}")
-                        continue
-
-            except Exception as e:
-                print(f"  페이지 로딩 실패: {e}")
-
-            finally:
-                browser.close()
+        finally:
+            driver.quit()
 
         return items
 

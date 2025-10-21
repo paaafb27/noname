@@ -38,7 +38,7 @@ def send_to_spring_boot(api_url, api_key, site, items, max_retries=3):
 
             response = requests.post(
                 api_url,
-                json=payload,
+                json={'site': site, 'items': items},
                 headers=headers,
                 timeout=60          # 60초
             )

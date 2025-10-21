@@ -7,7 +7,11 @@ URL: https://bbs.ruliweb.com/market/board/1020
 """
 import datetime
 
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import sys
 import os
@@ -82,72 +86,70 @@ class RuliwebScraper:
         """특정 페이지 크롤링"""
         items = []
 
-        with sync_playwright() as p:
-            # 브라우저 실행
-            browser = p.chromium.launch(
-                headless=True,
-                args=[
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-blink-features=AutomationControlled'
-                ]
+        items = []
+
+        options = Options()
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument('--single-process')
+        options.binary_location = '/opt/chrome/chrome'  # Lambda Chrome 경로
+
+        driver = webdriver.Chrome(
+            executable_path='/opt/chromedriver',
+            options=options
+        )
+
+        # image/css 차단 for 속도 향상
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
+
+        try:
+            # 페이지 URL
+            if page_num == 1:
+                url = self.url
+            else:
+                url = f"{self.url}?page={page_num}"
+
+            driver.get(url)
+            WebDriverWait(driver, 15).until(
+                EC.presence_of_element_located((By.TAG_NAME, "body"))
             )
-            page = browser.new_page()
 
-            # image/css 차단 for 속도 향상
-            page.route(
-                "**/*.{png,jpg,jpeg,gif,svg,webp,css,woff,woff2}",
-                lambda route: route.abort()
-            )
+            # HTML 파싱
+            html = driver.page_source
+            soup = BeautifulSoup(html, 'lxml')
 
-            try:
-                # 페이지 URL
-                if page_num == 1:
-                    url = self.url
-                else:
-                    url = f"{self.url}?page={page_num}"
+            # 게시글 목록
+            rows = soup.select('.board_list_table tbody tr.blocktarget')
+            print(f"페이지 {page_num}: {len(rows)}개 발견")
 
-                # 페이지 로딩
-                page.goto(
-                    url,
-                    timeout=30000,
-                    wait_until='domcontentloaded'
-                )
-
-                # 테이블 로딩 대기
-                page.wait_for_selector('tr.table_body', timeout=10000)
-
-                # HTML 파싱
-                html = page.content()
-                soup = BeautifulSoup(html, 'lxml')
-
-                # 게시글 목록
-                rows = soup.select('.board_list_table tbody tr.blocktarget')
-                print(f"페이지 {page_num}: {len(rows)}개 발견")
-
-                for row in rows:
-                    try:
-                        # 필터링 : 공지 / 광고 제외
-                        classes = row.get('class', [])
-                        if 'best' in classes:
-                            continue
-
-                        # 데이터 추출
-                        item = self._extract_item(row)
-                        if item:
-                            items.append(item)
-
-                    except Exception as e:
-                        print(f"게시글 파싱 실패: {e}")
+            for row in rows:
+                try:
+                    # 필터링 : 공지 / 광고 제외
+                    classes = row.get('class', [])
+                    if 'best' in classes:
                         continue
 
-            except Exception as e:
-                print(f"  페이지 로딩 실패: {e}")
+                    # 데이터 추출
+                    item = self._extract_item(row)
+                    if item:
+                        items.append(item)
 
-            finally:
-                browser.close()
+                except Exception as e:
+                    print(f"게시글 파싱 실패: {e}")
+                    continue
+
+        except Exception as e:
+            print(f"  페이지 로딩 실패: {e}")
+
+        finally:
+            driver.quit()
 
         return items
 

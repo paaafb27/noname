@@ -6,7 +6,14 @@
 
 import json
 import os
-from datetime import time
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
+import requests
 
 from scraper import ArcaliveScraper
 from common.api_client import send_to_spring_boot
@@ -14,7 +21,7 @@ from common.api_client import send_to_spring_boot
 # 환경 변수
 API_URL = os.environ.get('API_URL')  # Spring Boot API
 API_KEY = os.environ.get('API_KEY')  # 인증 키
-SITE_NAME = 'ARCALIVE'              # SourceSite enum 값
+SITE_NAME = 'ARCALIVE'               # SourceSite enum 값
 
 ######################################################################
 
@@ -24,8 +31,6 @@ def lambda_handler(event, context):
 
     EventBridge가 10분마다 호출
     """
-    start_time = time.time()
-
     try:
         print(f"[{SITE_NAME}] 크롤링 시작 ...")
 
@@ -52,6 +57,7 @@ def lambda_handler(event, context):
                     'success': True,
                     'site': SITE_NAME,
                     'total_items': len(items),
+                    'crawled_at': datetime.now().isoformat(),
                     'api_result': result
                 }, ensure_ascii=False)
             }

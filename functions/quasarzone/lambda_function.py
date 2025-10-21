@@ -6,15 +6,17 @@
 
 import json
 import os
-from datetime import time
+import sys
+from datetime import datetime
 
 from scraper import QuasarzoneScraper
 from common.api_client import send_to_spring_boot
 
 # 환경 변수
-API_URL = os.environ.get('API_URL')     # Spring Boot API
-API_KEY = os.environ.get('API_KEY')     # 인증 키
-SITE_NAME = 'QUASARZONE'                # SourceSite enum 값
+API_URL = os.environ.get('API_URL')  # Spring Boot API
+API_KEY = os.environ.get('API_KEY')  # 인증 키
+SITE_NAME = 'QUASARZONE'  # SourceSite enum 값
+
 
 ######################################################################
 
@@ -24,7 +26,6 @@ def lambda_handler(event, context):
 
     EventBridge가 10분마다 호출
     """
-    start_time = time.time()
 
     try:
         print(f"[{SITE_NAME}] 크롤링 시작 ...")
@@ -38,10 +39,10 @@ def lambda_handler(event, context):
         # 2. Spring Boot API 전송
         if items:
             result = send_to_spring_boot(
-                api_url = API_URL,
-                api_key = API_KEY,
-                site = SITE_NAME,
-                items = items
+                api_url=API_URL,
+                api_key=API_KEY,
+                site=SITE_NAME,
+                items=items
             )
 
             print(f"API 전송 완료 : {result}")
@@ -52,6 +53,7 @@ def lambda_handler(event, context):
                     'success': True,
                     'site': SITE_NAME,
                     'total_items': len(items),
+                    'crawled_at': datetime.now().isoformat(),
                     'api_result': result
                 }, ensure_ascii=False)
             }
