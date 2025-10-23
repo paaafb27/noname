@@ -133,5 +133,5 @@ jwt:
 # 크롤러 API Key 설정
 app:
   crawl:
-    api-key: test-key-for-development-only
+    api-key: ${CRAWLER_API_KEY:test-key-for-development-only}
 

@@ -21,15 +21,15 @@ import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @RestController
-@RequestMapping("/api/sales/{saleId}/comments")
+@RequestMapping("/api/comments")
 public class CommentController {
 
-	private CommentService commentService;
+	private final CommentService commentService;
 	
 	/**
 	 * 댓글 목록 조회
 	 */
-	@GetMapping
+    @GetMapping("/sale/{saleId}")
 	public ResponseEntity<List<CommentDTO>> getCommentList(@PathVariable Long saleId) {
 		return ResponseEntity.ok(commentService.getCommentList(saleId));
 	}

@@ -6,12 +6,12 @@
 <!-- 네비게이션 -->
 <div th:replace="~{layout/header :: navbar}"></div>
 
-<div class="container mt-5">
+<div class="container mt-4">
     <div class="row">
         <!-- 세일 정보 -->
         <div class="col-lg-8">
-            <div class="card shadow">
-                <div class="card-body p-5">
+            <div class="card mb-4">
+                <div class="card-body">
                     <!-- 출처 배지 -->
                     <span class="badge bg-secondary mb-2" th:text="${sale.sourceSite}">뽐뿌</span>
                     
@@ -46,7 +46,7 @@
                     </div>
                     
                     <!-- 좋아요 버튼 -->
-                    <button class="btn btn-outline-danger" id="likeBtn" onclick="toggleLike()">
+                    <button class="btn btn-outline-danger w-100" id="likeBtn" onclick="toggleLike()">
                         <i class="bi bi-heart"></i>
                         <span id="likeText">좋아요</span>
                         <span class="badge bg-danger ms-2" id="likeCount" th:text="${sale.likeCount}">0</span>
@@ -67,7 +67,7 @@
                     <div th:if="${!#strings.isEmpty(userName)}" class="mb-4">
                         <textarea class="form-control mb-2" id="commentContent" rows="3" 
                                   placeholder="댓글을 입력하세요..."></textarea>
-                        <button class="btn btn-outline-primary" onclick="writeComment()">
+                        <button class="btn btn-primary" onclick="writeComment()">
                             <i class="bi bi-send"></i> 댓글 작성
                         </button>
                     </div>
@@ -106,9 +106,7 @@
 <script th:src="@{/js/main.js}"></script>
 
 <script th:inline="javascript">
-/*<![CDATA[*/
-    const saleId = /*[[${sale.id}]]*/ 0;
-/*]]>*/
+const saleId = [[${sale.id}]];
 
 // 페이지 로드 시 댓글 로드
 document.addEventListener('DOMContentLoaded', function() {

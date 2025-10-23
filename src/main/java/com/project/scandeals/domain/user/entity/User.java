@@ -71,6 +71,13 @@ public class User {
 	@Column(nullable = false, updatable = false)
 	private LocalDateTime updatedAt;
 	
+	@Builder
+	public User(String email, String name, String picture) {
+	    this.email = email;
+	    this.name = name;
+	    this.nickname = name;		// 초기값 name, 추후 가입 시 입력 값으로 변경
+	}
+	
 	/**
      * 사용자 정보 업데이트
      * 

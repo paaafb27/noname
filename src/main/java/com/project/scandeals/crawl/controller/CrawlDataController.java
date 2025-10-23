@@ -35,10 +35,10 @@ public class CrawlDataController {
 			@RequestBody CrawlDataDTO crawlDataDTO
 	) {
 		// API Key 검증
-//		if (!apiKey.equals(requestApiKey)) {
-//			log.warn("크롤링 API 인증 실패");
-//			return ResponseEntity.status(401).body("Unauthorized");
-//		}
+		if (!apiKey.equals(requestApiKey)) {
+			log.warn("크롤링 API 인증 실패");
+			return ResponseEntity.status(401).body("Unauthorized");
+		}
 		
 		int savedCount = 0;
 		int skippedCount = 0;
@@ -73,6 +73,14 @@ public class CrawlDataController {
 	            String.format("Saved: %d, Skipped: %d", savedCount, skippedCount));
 				
 	}
+	
+	/**
+     * 헬스체크
+     */
+    @GetMapping("/health")
+    public ResponseEntity<String> health() {
+        return ResponseEntity.ok("Crawl API OK");
+    }
 	
 	
 }

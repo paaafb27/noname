@@ -37,7 +37,6 @@ public class Comment {
 	
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	@JoinColumn(name = "sale_id", nullable = false)
 	private Long id;
 	
 	@ManyToOne(fetch = FetchType.LAZY)
@@ -71,6 +70,14 @@ public class Comment {
 	@UpdateTimestamp
 	@Column(nullable = false)
 	private LocalDateTime updatedAt;
+	
+	@Builder
+    public Comment(Sale sale, User user, Comment parent, String content) {
+        this.sale = sale;
+        this.user = user;
+        this.parent = parent;
+        this.content = content;
+    }
 	
 	/**
      * 댓글 수정

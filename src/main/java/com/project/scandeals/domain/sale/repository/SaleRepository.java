@@ -38,6 +38,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
      * 상품 URL로 조회
      */
     Optional<Sale> findByProductUrl(String productUrl);
+    
+    /**
+     * URL 중복 검사 
+     */
+    boolean existsByProductUrl(String productUrl);
 	
 	/**
 	 * 카테고리별 조회

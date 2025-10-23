@@ -31,7 +31,7 @@ public class SaleLikeService {
     @Transactional
     public boolean toggleLike(Long saleId, Long userId) {
     	
-    	Sale sale = saleRepository.findById(userId)
+    	Sale sale = saleRepository.findById(saleId)
                 .orElseThrow(() -> new IllegalArgumentException("세일을 찾을 수 없습니다."));
     	
     	User user = userRepository.findById(userId)
