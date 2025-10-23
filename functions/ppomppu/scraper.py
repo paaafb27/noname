@@ -43,7 +43,7 @@ class PpomppuScraper:
         """
         all_items = []
         page_num = 1
-        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링 중...")
@@ -135,7 +135,7 @@ class PpomppuScraper:
                         continue
 
                     # 데이터 추출
-                    item = self._extract_item(row)
+                    item = self._extract_items(row)
                     if item:
                         items.append(item)
 
@@ -201,7 +201,7 @@ class PpomppuScraper:
         reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
-        like_element = row.title_element('td.baseList-rec')
+        like_element = row.select_one('td.baseList-rec')
         like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url

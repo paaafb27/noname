@@ -40,7 +40,7 @@ class ArcaliveScraper:
         """
         all_items = []
         page_num = 1
-        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링...")
@@ -171,7 +171,7 @@ class ArcaliveScraper:
 
         # 카테고리
         category_element = row.select_one('a.badge')
-        category = category_element.get(strip=True) if category_element else None
+        category = category_element.get_text(strip=True) if category_element else None
 
         # 가격
         price_element = row.select_one('span.deal-price')
@@ -186,7 +186,7 @@ class ArcaliveScraper:
         time = time_element.get_text(strip=True) if time_element else None
 
         # 댓글 수
-        reply_element = title_element.select_one('span.info')
+        reply_element = row.select_one('span.info')
         reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 추천 수

@@ -1,0 +1,18 @@
+FROM public.ecr.aws/lambda/python:3.11
+
+# --- 진단 단계 ---
+# 1. requirements.txt 파일을 먼저 복사합니다.
+COPY functions/fmkorea/requirements.txt .
+
+# 2. pip 설치 과정을 상세히 출력하고, 그 결과를 ls 명령어로 확인합니다.
+RUN echo "--- [진단 시작] Pip 설치 과정을 상세히 출력합니다. ---" && \
+    pip install -v -r requirements.txt --target "/var/task" && \
+    echo "--- [진단 확인] /var/task 폴더의 내용을 확인합니다. ---" && \
+    ls -lR /var/task && \
+    echo "--- [진단 종료] 문제가 없다면 selenium 폴더가 보여야 합니다. ---"
+
+# 나머지 코드는 진단을 위해 모두 주석 처리
+# COPY functions/fmkorea/lambda_function.py /var/task/
+# COPY functions/fmkorea/scraper.py /var/task/
+# COPY common /var/task/common
+# CMD [ "lambda_function.lambda_handler" ]

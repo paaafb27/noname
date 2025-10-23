@@ -52,7 +52,7 @@ class EomisaeScraper:
         """
         all_items = []
         page_num = 1
-        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링 중...")
@@ -93,8 +93,6 @@ class EomisaeScraper:
 
     def _scrape_page(self, page_num, targetUrl):
         """특정 페이지 크롤링"""
-        items = []
-
         items = []
 
         options = Options()
@@ -144,7 +142,7 @@ class EomisaeScraper:
             for card in cards:
                 try:
                     # 필터링
-                    title_element = card.locator('a.pjax')
+                    title_element = card.select_one('a.pjax')
                     title = title_element.get_text(strip=True)
 
                     # 레벨 미달 제외
@@ -211,7 +209,7 @@ class EomisaeScraper:
         like_count = like_element.get_text(strip=True) if like_element else None
 
         # 이미지 url
-        img_element = card.select_one('div.card_el.n_ntc.clear div.tmb_wrp img.tmb')
+        img_element = card.select_one('div.tmb_wrp img.tmb')
         image_url = img_element['src'] if img_element else None
 
         return {

@@ -1,10 +1,5 @@
 import requests
-import json
 import time
-
-from scraper import scraper
-
-from common.send_slack_alert import send_slack_alert
 
 """
     Spring Boot API로 데이터 전송

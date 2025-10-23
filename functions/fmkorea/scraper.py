@@ -37,9 +37,6 @@ class FmkoreaScraper:
 
     def _scrape_with_pagination(self):
 
-        all_items = _scrape_all_items(self)
-        return all_items
-
         """
         - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
         - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
@@ -47,7 +44,7 @@ class FmkoreaScraper:
 
         all_items = []
         page_num = 1
-        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링 중...")
@@ -167,7 +164,7 @@ class FmkoreaScraper:
 
         # 판매처
         store_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '쇼핑몰')]/a[@class='strong']"
-        store_element = row.locator(f"xpath={store_selector}")
+        store_element = row.find(f"xpath={store_selector}")
         if store_element:
             store = store_element.get_text(strip=True)
         else:

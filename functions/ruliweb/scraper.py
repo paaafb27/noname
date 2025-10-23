@@ -43,7 +43,7 @@ class RuliwebScraper:
         """
         all_items = []
         page_num = 1
-        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링 중...")
@@ -84,7 +84,6 @@ class RuliwebScraper:
 
     def _scrape_page(self, page_num):
         """특정 페이지 크롤링"""
-        items = []
 
         items = []
 
@@ -173,7 +172,7 @@ class RuliwebScraper:
         if store_element:
             store = store_element.get_text(strip=True)
         else:
-            '기타'
+            store = '기타'
 
         # 카테고리
         category_element = row.select_one('td.divsn.text_over a')
@@ -194,7 +193,7 @@ class RuliwebScraper:
         reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
-        like_element = row.title_element('td.recomd')
+        like_element = row.select_one('td.recomd')
         like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url

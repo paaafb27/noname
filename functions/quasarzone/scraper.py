@@ -40,7 +40,7 @@ class QuasarzoneScraper:
         """
         all_items = []
         page_num = 1
-        cutoff_time = datetime.now() - datetime.timedelta(minutes=30)
+        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링 중...")
@@ -80,8 +80,6 @@ class QuasarzoneScraper:
         return all_items
 
     def _scrape_page(self, page_num):
-
-        items = []
 
         items = []
 
@@ -184,7 +182,7 @@ class QuasarzoneScraper:
         reply_count = reply_element.get_text(strip=True) if reply_element else 0
 
         # 좋아요 수
-        like_element = row.title_element('span.num.num.tp2')
+        like_element = row.select_one('span.num.num.tp2')
         like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 이미지 url
