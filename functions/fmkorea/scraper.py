@@ -4,6 +4,8 @@ FMKOREA 크롤러
 URL: https://www.fmkorea.com/hotdeal
 """
 import datetime
+import sys
+import os
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -11,16 +13,13 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-import sys
-import os
-import re
 
-from common.number_extractor import extract_number_from_text
-from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
-from common.pagination_utils import _scrape_all_items
+
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
+from common.number_extractor import extract_number_from_text
+from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
 
 
 class FmkoreaScraper:
@@ -89,6 +88,13 @@ class FmkoreaScraper:
         items = []
 
         options = Options()
+        # image/css 차단 for 속도 향상
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -101,14 +107,6 @@ class FmkoreaScraper:
             options=options
         )
 
-        # image/css 차단 for 속도 향상
-        options.add_experimental_option(
-            "prefs", {
-                "profile.managed_default_content_settings.images": 2,
-                "profile.managed_default_content_settings.stylesheets": 2
-            }
-        )
-
         try:
             # 페이지 URL
             if page_num == 1:
@@ -116,6 +114,7 @@ class FmkoreaScraper:
             else:
                 url = f"{self.main_url}/index.php?mid=hotdeal&page={page_num}"
 
+            # 페이지 로드
             driver.get(url)
             WebDriverWait(driver, 15).until(
                 EC.presence_of_element_located((By.TAG_NAME, "body"))
@@ -152,65 +151,76 @@ class FmkoreaScraper:
         """
         세일정보 추출
         """
-        # 제목
-        title_element = row.select_one('span.ellipsis-target')
-        if not title_element:
+        try:
+            # 제목
+            title_element = row.select_one('span.ellipsis-target')
+            if not title_element:
+                return None
+            title = title_element.get_text(strip=True)
+
+            # URL
+            url_element = row.select_one('div.li a.hotdeal_var8')
+            product_url = self.main_url + url_element.get('href', '')
+
+            # 판매처
+            # store_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '쇼핑몰')]/a[@class='strong']"
+            store_element = row.select_one('div.hotdeal_info span:nth-of-type(1) a.strong')
+            if store_element:
+                store = store_element.get_text(strip=True)
+            else:
+                store = '기타'
+
+            # 카테고리
+            category_element = row.select_one('span.category a')
+            category = category_element.get_text(strip=True) if category_element else None
+
+            # 가격
+            # price_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '가격')]/a[@class='strong']"
+            price_element = row.select_one('div.hotdeal_info span:nth-of-type(2) a.strong')
+            price = price_element.get_text(strip=True) if price_element else ''
+
+            # 배송비
+            # shipping_fee_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '배송')]/a[@class='strong']"
+            shipping_fee_element = row.select_one('div.hotdeal_info span:nth-of-type(3) a.strong')
+            shipping_fee = shipping_fee_element.get_text(strip=True) if shipping_fee_element else None
+
+            # 등록 시간
+            time_element = row.select_one('span.regdate')
+            time = time_element.get_text(strip=True) if time_element else None
+            time = to_iso8601(parse_time(time))
+
+            # 댓글 수
+            reply_count = 0
+            reply_element = row.select_one('span.comment_count')
+            if reply_element:
+                reply_text = reply_element.get_text(strip=True)
+                reply_count = extract_number_from_text(reply_text)
+
+            # 추천 수
+            like_count = 0
+            like_element = row.select_one('span.count')
+            if like_element:
+                like_text = like_element.get_text(strip=True)
+                like_count = extract_number_from_text(like_text)
+
+            # 이미지 url
+            image_element = row.select_one('img.thumb')
+            image_url = image_element['src'] if image_element else None
+
+            return {
+                'title': title,
+                'price': price,
+                'storeName': store,
+                'category': category,
+                'shippingFee': shipping_fee,
+                'productUrl': product_url,
+                'imageUrl': image_url,
+                'replyCount': reply_count,
+                'likeCount': like_count,
+                'sourceSite': self.source_site,
+                'crawledAt': time
+            }
+
+        except Exception as e:
+            print(f"항목 추출 중 오류: {e}")
             return None
-        title = title_element.get_text(strip=True)
-
-        # URL
-        url_element = row.select_one('div.li a.hotdeal_var8')
-        product_url = self.main_url + url_element['href']
-
-        # 판매처
-        store_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '쇼핑몰')]/a[@class='strong']"
-        store_element = row.find(f"xpath={store_selector}")
-        if store_element:
-            store = store_element.get_text(strip=True)
-        else:
-            '기타'
-
-        # 카테고리
-        category_element: row.select_one('span.category a')
-        category = category_element.get_text(strip=True) if category_element else None
-
-        # 가격
-        price_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '가격')]/a[@class='strong']"
-        price_element = row.locator(f"xpath={price_selector}")
-        price = price_element.get_text(strip=True) if price_element else ''
-
-        # 배송비
-        shipping_fee_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '배송')]/a[@class='strong']"
-        shipping_fee_element = row.locator(f"xpath={shipping_fee_selector}")
-        shipping_fee = shipping_fee_element.get_text(strip=True) if price_element else None
-
-        # 등록 시간
-        time_element = row.select_one('span.regdate')
-        time = time_element.get_text(strip=True) if time_element else None
-        time = to_iso8601(parse_time(time))
-
-        # 댓글 수
-        reply_element = row.select_one('span.comment_count')
-        reply_count = reply_element.get_text(strip=True) if reply_element else 0
-
-        # 추천 수
-        like_elemet = row.select_one('div.fm_best_widget._bd_pc li.li_best2_hotdeal0 span.count')
-        like_count = like_elemet.get_text(strip=True) if reply_element else 0
-
-        # 이미지 url
-        image_element = row.select_one('img.thumb')
-        image_url = image_element['src'] if image_element else None
-
-        return {
-            'title': title,
-            'price': price,
-            'storeName': store,
-            'category': category,
-            'shippingFee': shipping_fee,
-            'productUrl': product_url,
-            'imageUrl': image_url,
-            'replyCount': reply_count,
-            'likeCount': like_count,
-            'sourceSite': self.source_site,
-            'crawledAt': time
-        }

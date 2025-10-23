@@ -88,6 +88,13 @@ class RuliwebScraper:
         items = []
 
         options = Options()
+        # image/css 차단 for 속도 향상
+        options.add_experimental_option(
+            "prefs", {
+                "profile.managed_default_content_settings.images": 2,
+                "profile.managed_default_content_settings.stylesheets": 2
+            }
+        )
         options.add_argument('--headless')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -98,14 +105,6 @@ class RuliwebScraper:
         driver = webdriver.Chrome(
             executable_path='/opt/chromedriver',
             options=options
-        )
-
-        # image/css 차단 for 속도 향상
-        options.add_experimental_option(
-            "prefs", {
-                "profile.managed_default_content_settings.images": 2,
-                "profile.managed_default_content_settings.stylesheets": 2
-            }
         )
 
         try:
