@@ -7,6 +7,7 @@ import datetime
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -15,8 +16,9 @@ import sys
 import os
 import re
 
+from common.log_util import log_item
 from common.number_extractor import extract_price_from_title
-from common.filter_by_regtime import filter_by_time, parse_time
+from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
@@ -32,6 +34,7 @@ class EomisaeScraper:
         self.main_url = 'https://eomisae.co.kr/'
         self.source_site = 'EOMISAE'
         self.max_pages = 5
+        self.test_mode = False
 
     def scrape(self):
 
@@ -50,9 +53,15 @@ class EomisaeScraper:
         - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
         - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
         """
+
         all_items = []
         page_num = 1
-        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
+
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        # 테스트 모드면 2시간, 실제는 30분
+        filter_minutes = 120 if self.test_mode else 30
+        now = datetime.datetime.now(kst)
+        cutoff_time = now - datetime.timedelta(minutes=filter_minutes)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링 중...")
@@ -64,9 +73,17 @@ class EomisaeScraper:
                 break
 
             # 30분 이내 작성된 게시글 필터링
-            page_filtered = filter_by_time(page_items, minutes=30)
+            page_filtered = filter_by_time(page_items, minutes=filter_minutes)
+            if page_filtered:
+                print(f"  -> 수집 대상 {len(page_filtered)}개:")
+                for filtered_item in page_filtered:
+                    log_item(filtered_item)
+
             all_items.extend(page_filtered)
             print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
+
+            if not page_items:  # 안전장치
+                break
 
             # 다음 페이지 확인 여부 판단
             # 원본(page_items)의 마지막 게시글 시간으로 판단
@@ -79,10 +96,10 @@ class EomisaeScraper:
 
             # 마지막 게시글 등록 시간이 30분 초과면 중단
             if last_time < cutoff_time:
-                print(f"→ 마지막 게시글 30분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
+                print(f"→ 마지막 게시글 {filter_minutes}분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
                 break
 
-            print(f"→ 마지막 게시글 30분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
+            print(f"→ 마지막 게시글 {filter_minutes}분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
             page_num += 1
 
         if page_num > self.max_pages:
@@ -94,26 +111,32 @@ class EomisaeScraper:
     def _scrape_page(self, page_num, targetUrl):
         """특정 페이지 크롤링"""
         items = []
-
         options = Options()
-        # image/css 차단 for 속도 향상
-        options.add_experimental_option(
-            "prefs", {
-                "profile.managed_default_content_settings.images": 2,
-                "profile.managed_default_content_settings.stylesheets": 2
-            }
-        )
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--single-process')
-        options.binary_location = '/opt/chrome/chrome'  # Lambda Chrome 경로
 
-        driver = webdriver.Chrome(
-            executable_path='/opt/chromedriver',
-            options=options
-        )
+        # AWS Lambda 환경인지 확인합니다. ('AWS_EXECUTION_ENV' 환경 변수 존재 여부로 판단)
+        if os.environ.get('AWS_EXECUTION_ENV'):
+            # Lambda 환경일 경우, 미리 설치된 드라이버와 브라우저 경로를 지정합니다.
+            print("  (Lambda 환경에서 실행)")
+
+            # image/css 차단 for 속도 향상
+            options.add_experimental_option(
+                "prefs", {
+                    "profile.managed_default_content_settings.images": 2,
+                    "profile.managed_default_content_settings.stylesheets": 2
+                }
+            )
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--single-process')
+            options.binary_location = '/opt/chrome-linux64/chrome'  # 크롬 브라우저 실행 파일 경로
+            service = Service(executable_path='/opt/chromedriver-linux64/chromedriver')
+            driver = webdriver.Chrome(service=service, options=options)
+        else:
+            # 로컬 환경일 경우, Selenium이 자동으로 드라이버를 관리하도록 합니다.
+            print("  (로컬 환경에서 실행)")
+            driver = webdriver.Chrome(options=options)
 
         try:
             # 페이지 URL
@@ -134,9 +157,20 @@ class EomisaeScraper:
             html = driver.page_source
             soup = BeautifulSoup(html, 'lxml')
 
+            # HTML 저장 (디버깅용)
+            with open(f'debug_{self.source_site}_page{page_num}.html', 'w', encoding='utf-8') as f:
+                f.write(html)
+            print(f"  [DEBUG] HTML 저장: debug_{self.source_site}_page{page_num}.html")
+
             # 게시글 목록
             cards = soup.select('div.card_el.n_ntc.clear')
             print(f"게시글 {len(cards)}개 발견")
+
+            # 다른 선택자들도 시도
+            if len(cards) == 0:
+                print(f"  [DEBUG] 다른 선택자 시도...")
+                alternative_rows = soup.select('div.card_wrap div.clear')
+                print(f"  [DEBUG] 대체 선택자: {len(alternative_rows)}개")
 
             for card in cards:
                 try:
@@ -154,9 +188,10 @@ class EomisaeScraper:
                         continue
 
                     # 데이터 추출
-                    item = self._extract_item(card)
+                    item = self._extract_item(card, driver)
                     if item:
                         items.append(item)
+                        log_item(item)
 
                 except Exception as e:
                     print(f"게시글 파싱 실패: {e}")
@@ -170,18 +205,36 @@ class EomisaeScraper:
 
         return items
 
-    def _extract_item(self, card):
+    def _extract_item(self, card, driver):
         """
         세일정보 추출
         """
         # 제목
-        title_element = card.locator('a.pjax')
+        title_element = card.select_one('a.pjax')
         if not title_element:
             return None
         title = title_element.get_text(strip=True)
 
         # URL
         product_url = title_element['href']
+        if not product_url:
+            return None
+
+        # 상세 페이지 접속 후 시간 get
+        try:
+            driver.get(product_url)
+            # "시계 아이콘 다음의 span"이 나타날 때까지 기다립니다.
+            time_element_selector = 'span.fa.fa-clock-o + span'
+            wait = WebDriverWait(driver, 10)  # 상세 페이지 로딩을 위한 대기
+            time_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, time_element_selector)))
+
+            time_text = time_element.text
+            time_obj = parse_time(time_text)
+            time = to_iso8601(time_obj)
+
+        except Exception as e:
+            print(f"  상세 페이지 시간 추출 실패: {product_url}, 에러: {e}")
+            time = None  # 시간 추출 실패 시 None으로 처리
 
         # 판매처: 제목 첫 단어
         # ex) "금강제화 더비" → "금강제화"
@@ -194,10 +247,6 @@ class EomisaeScraper:
         # 배송비
         # title에 '무배' 키워드가 있으면 0 없으면 ''
         shipping_fee = ''
-
-        # 등록 시간
-        time_element = card.select_one('div.card_content span:nth-of-type(2):not(.fr)')
-        time = time_element.get_text(strip=True) if time_element else ''
 
         # 댓글 수
         reply_element = card.select_one('div.card_content span:nth-of-type(2).fr')

@@ -7,6 +7,7 @@ import datetime
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -15,7 +16,8 @@ import sys
 import os
 import re
 
-from common.filter_by_regtime import filter_by_time, parse_time
+from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
+from common.log_util import log_item
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
@@ -28,6 +30,7 @@ class ArcaliveScraper:
         self.main_url = "https://arca.live"
         self.source_site = 'ARCALIVE'
         self.max_pages = 5
+        self.test_mode = False
 
     def scrape(self):
         """페이징 크롤링 (30분 필터링)"""
@@ -38,9 +41,15 @@ class ArcaliveScraper:
         - 페이지의 마지막 게시글이 30분 이내면 다음 페이지 계속 확인
         - 마지막 게시글이 30분 초과하거나 최대 페이지 도달 시 중단
         """
+
         all_items = []
         page_num = 1
-        cutoff_time = datetime.datetime.now() - datetime.timedelta(minutes=30)
+
+        kst = datetime.timezone(datetime.timedelta(hours=9))
+        # 테스트 모드면 2시간, 실제는 30분
+        filter_minutes = 120 if self.test_mode else 30
+        now = datetime.datetime.now(kst)
+        cutoff_time = now - datetime.timedelta(minutes=filter_minutes)
 
         while page_num <= self.max_pages:
             print(f"\n{page_num}페이지 크롤링...")
@@ -52,7 +61,12 @@ class ArcaliveScraper:
                 break
 
             # 30분 이내 작성된 게시글 필터링
-            page_filtered = filter_by_time(page_items, minutes=30)
+            page_filtered = filter_by_time(page_items, minutes=filter_minutes)
+            if page_filtered:
+                print(f"  -> 수집 대상 {len(page_filtered)}개:")
+                for filtered_item in page_filtered:
+                    log_item(filtered_item)
+
             all_items.extend(page_filtered)
             print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
 
@@ -66,10 +80,10 @@ class ArcaliveScraper:
                 break
 
             if last_time < cutoff_time:
-                print(f"→ 마지막 게시글 30분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
+                print(f"→ 마지막 게시글 {filter_minutes}분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
                 break
 
-            print(f"→ 마지막 게시글 30분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
+            print(f"→ 마지막 게시글 {filter_minutes}분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
             page_num += 1
 
         if page_num > self.max_pages:
@@ -84,26 +98,32 @@ class ArcaliveScraper:
         """
 
         items = []
-
         options = Options()
-        # image/css 차단 for 속도 향상
-        options.add_experimental_option(
-            "prefs", {
-                "profile.managed_default_content_settings.images": 2,
-                "profile.managed_default_content_settings.stylesheets": 2
-            }
-        )
-        options.add_argument('--headless')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
-        options.add_argument('--single-process')
-        options.binary_location = '/opt/chrome/chrome'  # Lambda Chrome 경로
 
-        driver = webdriver.Chrome(
-            executable_path='/opt/chromedriver',
-            options=options
-        )
+        # AWS Lambda 환경인지 확인합니다. ('AWS_EXECUTION_ENV' 환경 변수 존재 여부로 판단)
+        if os.environ.get('AWS_EXECUTION_ENV'):
+            # Lambda 환경일 경우, 미리 설치된 드라이버와 브라우저 경로를 지정합니다.
+            print("  (Lambda 환경에서 실행)")
+
+            # image/css 차단 for 속도 향상
+            options.add_experimental_option(
+                "prefs", {
+                    "profile.managed_default_content_settings.images": 2,
+                    "profile.managed_default_content_settings.stylesheets": 2
+                }
+            )
+            options.add_argument('--headless')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--single-process')
+            options.binary_location = '/opt/chrome-linux64/chrome'  # 크롬 브라우저 실행 파일 경로
+            service = Service(executable_path='/opt/chromedriver-linux64/chromedriver')
+            driver = webdriver.Chrome(service=service, options=options)
+        else:
+            # 로컬 환경일 경우, Selenium이 자동으로 드라이버를 관리하도록 합니다.
+            print("  (로컬 환경에서 실행)")
+            driver = webdriver.Chrome(options=options)
 
         try:
             # 페이지 URL
@@ -122,15 +142,27 @@ class ArcaliveScraper:
             html = driver.page_source
             soup = BeautifulSoup(html, 'lxml')
 
+            # HTML 저장 (디버깅용)
+            with open(f'debug_{self.source_site}_page{page_num}.html', 'w', encoding='utf-8') as f:
+                f.write(html)
+            print(f"  [DEBUG] HTML 저장: debug_{self.source_site}_page{page_num}.html")
+
             # 게시글 목록
             rows = soup.select('div.list-table.hybrid div.vrow.hybrid')
             print(f"페이지 {page_num}: {len(rows)}개 발견")
+
+            # 다른 선택자들도 시도
+            if len(rows) == 0:
+                print(f"  [DEBUG] 다른 선택자 시도...")
+                alternative_rows = soup.select('div.article-list div.hybrid')
+                print(f"  [DEBUG] 대체 선택자: {len(alternative_rows)}개")
 
             for row in rows:
                 try:
                     item = self._extract_item(row)
                     if item:
                         items.append(item)
+                        log_item(item)
 
                 except Exception as e:
                     print(f"게시글 파싱 실패: {e}")
@@ -177,6 +209,7 @@ class ArcaliveScraper:
         # 등록 시간
         time_element = row.select_one('time')
         time = time_element.get_text(strip=True) if time_element else None
+        time = to_iso8601(parse_time(time))
 
         # 댓글 수
         reply_element = row.select_one('span.info')
