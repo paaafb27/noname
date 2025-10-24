@@ -41,7 +41,10 @@ def test_scraper(scraper_class, site_name):
         scraper = scraper_class()
 
         if hasattr(scraper, 'test_mode'):
-            scraper.test_mode = True
+            # scraper.test_mode = True
+            scraper.filter_minutes = 120  # 2시간
+            print(f"⏰ 필터링 시간: 120분 (2시간)")
+
 
         start_time = datetime.now()
         results = scraper.scrape()
