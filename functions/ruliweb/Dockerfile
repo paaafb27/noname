@@ -25,21 +25,23 @@ RUN apt-get update && \
         libnss3 \
         libgbm-dev \
         dbus-x11 \
+        chromium \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Chrome 및 Chromedriver 설치 (경로 동일)
-# RUN curl -Lo /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chrome-linux64.zip" && unzip /tmp/chrome.zip -d /opt/
-# RUN curl -Lo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/131.0.6778.204/linux64/chromedriver-linux64.zip" && unzip /tmp/chromedriver.zip -d /opt/
+# RUN curl -Lo /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/119.0.6045.105/linux64/chrome-linux64.zip" && unzip /tmp/chrome.zip -d /opt/
+# RUN curl -Lo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/119.0.6045.105/linux64/chromedriver-linux64.zip" && unzip /tmp/chromedriver.zip -d /opt/
 # RUN chmod +x /opt/chrome-linux64/chrome /opt/chromedriver-linux64/chromedriver
 
+
 # 3. Python 라이브러리 설치
-COPY functions/fmkorea/requirements.txt .
+COPY functions/ruliweb/requirements.txt .
 RUN pip install -r requirements.txt
 
 # 4. 소스 코드 복사
-COPY functions/fmkorea/lambda_function.py .
-COPY functions/fmkorea/scraper.py .
+COPY functions/ruliweb/lambda_function.py .
+COPY functions/ruliweb/scraper.py .
 COPY common ./common
 
 # 5. ECS Fargate용 진입점 지정 (수정됨)

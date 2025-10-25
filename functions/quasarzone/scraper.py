@@ -8,6 +8,7 @@ import time
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -15,6 +16,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import sys
 import os
+
+from webdriver_manager.core.os_manager import ChromeType
 
 from common.log_util import log_item
 from common.store_extractor import extract_store
@@ -121,48 +124,48 @@ class QuasarzoneScraper:
 
     def _create_driver(self):
         options = Options()
-        user_agent_string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        user_agent_string = "Mozilla/5.0 (Windows NT 1.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
-        print("(컨테이너 환경에서 실행)")
+        # --- Fargate/Lambda 공통 옵션 (최소 옵션 유지) ---
+        print("(컨테이너 환경에서 실행 - WebDriverManager 사용)")
 
-        # 메모리 최적화 옵션
-        options.add_experimental_option(
-            "prefs", {
-                "profile.managed_default_content_settings.images": 2,
-                "profile.managed_default_content_settings.stylesheets": 2,
-                "profile.managed_default_content_settings.fonts": 2,
-                "profile.managed_default_content_settings.plugins": 2,
-                "profile.managed_default_content_settings.popups": 2,
-            }
-        )
-        options.add_argument('--headless')
-        options.add_argument('--disable-gpu')
+        options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-software-rasterizer')
-        options.add_argument('--disable-extensions')
-        options.add_argument('--disable-background-networking')
-        options.add_argument('--disable-background-timer-throttling')
-        options.add_argument('--disable-backgrounding-occluded-windows')
-        options.add_argument('--disable-breakpad')
-        options.add_argument('--disable-component-extensions-with-background-pages')
-        options.add_argument('--disable-features=TranslateUI,BlinkGenPropertyTrees')
-        options.add_argument('--disable-ipc-flooding-protection')
-        options.add_argument('--disable-renderer-backgrounding')
-        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument('--disable-gpu')
         options.add_argument(f'--user-agent={user_agent_string}')
-        options.add_argument('--disable-javascript')
-        options.add_argument('--blink-settings=imagesEnabled=false')
-        options.add_argument('--max-old-space-size=512')
-        options.set_capability('pageLoadStrategy', 'eager')
 
-        # [고정] 크롬/드라이버 경로
-        options.binary_location = '/opt/chrome-linux64/chrome'
-        service = Service(executable_path='/opt/chromedriver-linux64/chromedriver')
-        driver = webdriver.Chrome(service=service, options=options)
+        # [수정] 임시 디렉토리 옵션은 충돌 가능성이 있으므로 일단 제거하고 테스트
+        # options.add_argument('--user-data-dir=/tmp/chrome-user-data')
+        # options.add_argument('--disk-cache-dir=/tmp/chrome-cache-dir')
+        # options.add_argument('--data-path=/tmp/chrome-data-path')
 
+        try:
+            print("WebDriverManager로 Chromedriver 경로 확인 및 드라이버 생성 시도...")
+            # 💡 [필수 수정] WebDriverManager 사용
+            #   Service 객체에 자동으로 드라이버 경로를 찾아 전달
+            service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+            # service = Service(ChromeDriverManager().install())
+            driver = webdriver.Chrome(service=service, options=options)
+            print("Chrome 드라이버 생성 성공!")
+            driver.set_page_load_timeout(60)
+            return driver
+        except Exception as e:
+            print(f"!!!!!!!! Chrome 드라이버 생성 실패 !!!!!!!!!!")
+            print(f"오류: {e}")
+            # WebDriverManager 로그 확인을 위해 traceback 추가
+            import traceback
+            traceback.print_exc()
+            raise # 에러 다시 발생
+        else:
+            print("  (로컬 환경에서 실행)")
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_argument(f'--user-agent={user_agent_string}')
+            options.add_argument('--window-size=1920,1080')
+            driver = webdriver.Chrome(options=options)
+
+        # 타임아웃 설정 (공통)
         driver.set_page_load_timeout(60)
-
         return driver
 
     def _scrape_page(self, driver, page_num):

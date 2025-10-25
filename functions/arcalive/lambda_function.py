@@ -30,3 +30,9 @@ def lambda_handler(event, context):
         import traceback
         traceback.print_exc()
         return {'statusCode': 500, 'body': json.dumps({'success': False, 'error': str(e)})}
+
+if __name__ == "__main__":
+    print("Fargate Task 실행: lambda_handler 호출")
+    # event와 context는 Fargate 실행 시 필요 없으므로 None으로 전달
+    result = lambda_handler(None, None)
+    print(f"Fargate Task 종료: {result}")

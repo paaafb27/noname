@@ -8,6 +8,7 @@ import time
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,6 +17,8 @@ from bs4 import BeautifulSoup
 import sys
 import os
 import re
+
+from webdriver_manager.core.os_manager import ChromeType
 
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
 from common.log_util import log_item
@@ -109,7 +112,7 @@ class ArcaliveScraper:
             print(f"크롤링 실패: {e}")
             import traceback
             traceback.print_exc()
-            return all_items        # 수집된 데이터라도 반환
+            return all_items  # 수집된 데이터라도 반환
 
         finally:
             if driver:
@@ -121,62 +124,39 @@ class ArcaliveScraper:
 
     def _create_driver(self):
         options = Options()
-        user_agent_string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
+        user_agent_string = "Mozilla/5.0 (Windows NT 1.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
-        if os.environ.get('AWS_EXECUTION_ENV'):
-            # Lambda 환경
-            print("(Lambda 환경에서 실행)")
+        # --- Fargate/Lambda 공통 옵션 (최소 옵션 유지) ---
+        print("(컨테이너 환경에서 실행 - WebDriverManager 사용)")
 
-            # 메모리 최적화 옵션
-            options.add_experimental_option(
-                "prefs", {
-                    "profile.managed_default_content_settings.images": 2,
-                    "profile.managed_default_content_settings.stylesheets": 2,
-                    "profile.managed_default_content_settings.fonts": 2,
-                    "profile.managed_default_content_settings.plugins": 2,
-                    "profile.managed_default_content_settings.popups": 2,
-                }
-            )
+        options.add_argument('--headless=new')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--disable-gpu')
+        options.add_argument(f'--user-agent={user_agent_string}')
 
-            # 메모리 최적화 옵션
-            options.add_argument('--headless')
-            options.add_argument('--disable-gpu')
-            options.add_argument('--no-sandbox')
-            options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-software-rasterizer')
+        # [수정] 임시 디렉토리 옵션은 충돌 가능성이 있으므로 일단 제거하고 테스트
+        # options.add_argument('--user-data-dir=/tmp/chrome-user-data')
+        # options.add_argument('--disk-cache-dir=/tmp/chrome-cache-dir')
+        # options.add_argument('--data-path=/tmp/chrome-data-path')
 
-            # 안정성 향상 옵션
-            options.add_argument('--disable-extensions')
-            options.add_argument('--disable-background-networking')
-            options.add_argument('--disable-background-timer-throttling')
-            options.add_argument('--disable-backgrounding-occluded-windows')
-            options.add_argument('--disable-breakpad')
-            options.add_argument('--disable-component-extensions-with-background-pages')
-            options.add_argument('--disable-features=TranslateUI,BlinkGenPropertyTrees')
-            options.add_argument('--disable-ipc-flooding-protection')
-            options.add_argument('--disable-renderer-backgrounding')
-
-            options.add_argument("--disable-blink-features=AutomationControlled")
-
-            # User-Agent 추가 (Bot 감지 우회)
-            options.add_argument(f'--user-agent={user_agent_string}')
-
-            options.add_argument('--disable-javascript')                    # JS 차단 (정적 HTML만 필요)
-            options.add_argument('--blink-settings=imagesEnabled=false')    # 이미지 완전 차단
-
-            # 메모리 제한
-            options.add_argument('--max-old-space-size=512')
-
-            # 페이지 로딩 전략 (DOM만 로드)
-            options.set_capability('pageLoadStrategy', 'eager')
-
-            options.binary_location = '/opt/chrome-linux64/chrome'
-            service = Service(executable_path='/opt/chromedriver-linux64/chromedriver')
+        try:
+            print("WebDriverManager로 Chromedriver 경로 확인 및 드라이버 생성 시도...")
+            # 💡 [필수 수정] WebDriverManager 사용
+            #   Service 객체에 자동으로 드라이버 경로를 찾아 전달
+            service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+            # service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=options)
-
-            # 타임아웃 설정 (기존 유지)
+            print("Chrome 드라이버 생성 성공!")
             driver.set_page_load_timeout(60)
-
+            return driver
+        except Exception as e:
+            print(f"!!!!!!!! Chrome 드라이버 생성 실패 !!!!!!!!!!")
+            print(f"오류: {e}")
+            # WebDriverManager 로그 확인을 위해 traceback 추가
+            import traceback
+            traceback.print_exc()
+            raise # 에러 다시 발생
         else:
             print("  (로컬 환경에서 실행)")
             options.add_argument('--disable-blink-features=AutomationControlled')
@@ -184,8 +164,9 @@ class ArcaliveScraper:
             options.add_argument('--window-size=1920,1080')
             driver = webdriver.Chrome(options=options)
 
+        # 타임아웃 설정 (공통)
+        driver.set_page_load_timeout(60)
         return driver
-
 
     def _scrape_page(self, driver, page_num):
         """
@@ -220,7 +201,7 @@ class ArcaliveScraper:
 
             # HTML 저장 (디버깅용)
             # with open(f'debug_{self.source_site}_page{page_num}.html', 'w', encoding='utf-8') as f:
-                # f.write(html)
+            # f.write(html)
             # print(f"  [DEBUG] HTML 저장: debug_{self.source_site}_page{page_num}.html")
 
             # 게시글 목록
@@ -314,5 +295,3 @@ class ArcaliveScraper:
             'sourceSite': self.source_site,
             'crawledAt': time
         }
-
-
