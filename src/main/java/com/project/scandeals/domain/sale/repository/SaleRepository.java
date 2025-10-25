@@ -30,6 +30,11 @@ public interface SaleRepository extends JpaRepository<Sale, Long> {
     List<Sale> findLatestSaleList(Pageable pageable);
     
     /**
+     *  최신 20개 조회
+     */
+    List<Sale> findTop20ByOrderByCreatedAtDesc();
+    
+    /**
      * 출처 사이트별 세일 조회
      */
     Page<Sale> findBySourceSiteOrderByCreatedAtDesc(String sourceSite, Pageable pageable);
