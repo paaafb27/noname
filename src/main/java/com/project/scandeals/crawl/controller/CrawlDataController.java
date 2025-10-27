@@ -37,7 +37,7 @@ public class CrawlDataController {
 	) {
 		// API Key 검증
 		if (!apiKey.equals(requestApiKey)) {
-			log.warn("크롤링 API 인증 실패");
+			log.warn("크롤링 API 인증 실패: 수신 키={}", requestApiKey);
 			return ResponseEntity.status(401).body("Unauthorized");
 		}
 		
@@ -48,7 +48,7 @@ public class CrawlDataController {
 			try {
 				Sale sale = Sale.builder()
 						.title(item.getTitle())
-	                    .price_str(item.getPriceStr())
+	                    .price_str(item.getPrice())			// DTO의 price(String)을 price_str에 매핑 (노출용)
 	                    .storeName(item.getStoreName())
 	                    .productUrl(item.getProductUrl())
 	                    .imageUrl(item.getImageUrl())

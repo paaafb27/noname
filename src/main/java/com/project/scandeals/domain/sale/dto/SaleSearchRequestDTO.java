@@ -1,8 +1,7 @@
 package com.project.scandeals.domain.sale.dto;
 
-import com.project.scandeals.common.entity.SourceSite;
+import java.util.List;
 
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -24,9 +23,11 @@ public class SaleSearchRequestDTO {
 	@Min(value = 1, message = "페이지 크기는 1 이상이어야 합니다.")
 	private int size = 20;
 	
-	private SourceSite sourceSite;
+	private List<String> sourcesSiteList;
 	private Long CategoryId;
 	private String keyword;
-	private String sortBy = "createdAt";
+	private String sortBy = "latest";
+	private Integer minPrice;
+	private Integer maxPrice;
 	private String direction = "DESC";
 }

@@ -26,8 +26,46 @@ public class SaleController {
 	 */
 	@GetMapping
 	public ResponseEntity<PageResponseDTO<SaleDTO>> getSaleList(
-			@ModelAttribute SaleSearchRequestDTO request) {
-		return ResponseEntity.ok(saleService.getSaleList(request));
+			@ModelAttribute SaleSearchRequestDTO requestDto) {
+		
+		// 필터 검색 여부
+		if (isFiltered(requestDto) ) {
+			// 조건 검색
+			return ResponseEntity.ok(saleService.getFilteredSaleList(requestDto));			
+		} else {
+			// 최신 검색
+			return ResponseEntity.ok(saleService.getSaleList(requestDto));
+		}
+	}
+	
+	// 필터링 조건 검사
+	private boolean isFiltered(SaleSearchRequestDTO requestDto) {
+		
+		// 제목 조회
+		if (requestDto.getKeyword() != null && !requestDto.getKeyword().isBlank()) {
+			return true;
+		}
+				
+		// 출처 사이트
+		if (requestDto.getSourcesSiteList() != null && !requestDto.getSourcesSiteList().isEmpty()) {
+			return true;
+		}
+				
+		// 가격 범위
+		if (requestDto.getMinPrice() != null && requestDto.getMinPrice() > 0) {
+			return true;
+		}
+		
+		if (requestDto.getMaxPrice() != null && requestDto.getMaxPrice() < 100000) {
+			return true;
+		}
+		        
+		// 정렬 기준 변경 시
+		if (!"latest".equals(requestDto.getSortBy())) {
+			return true;
+		}
+				
+		return false;
 	}
 	
 	/**

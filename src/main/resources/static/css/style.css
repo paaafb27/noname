@@ -3,47 +3,58 @@ body {
     background-color: #f8f9fa;
     font-family: 'Noto Sans KR', sans-serif;
     font-size: 14px;
+    
+    /* 💡 [수정] 1. 헤더 위 빈 공간 제거 (padding-top 삭제) */
+    /* 스티키 헤더로 인해 body에 패딩을 주면 안 됨 */
+    
+    /* 💡 [수정] 모바일 좌우 스크롤 방지 */
+    overflow-x: hidden; 
 }
 
-/* 필터 사이드바 */
+/* 필터 사이드바 (기존과 동일) */
 .filter-sidebar {
     background: #fff;
-    padding: 15px;
+    padding: 1.5rem; /* 💡 p-4 (1.5rem) */
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
-
+.filter-sidebar h5.fw-bold {
+    margin-bottom: 1rem !important;
+}
 .filter-title {
     font-size: 0.9rem;
     font-weight: 600;
-    margin-bottom: 10px;
+    margin-bottom: 0.75rem;
     color: #333;
     border-bottom: 2px solid #f0f0f0;
-    padding-bottom: 8px;
+    padding-bottom: 0.5rem;
 }
-
 .filter-section {
     border-bottom: 1px solid #f0f0f0;
-    padding-bottom: 15px;
-    margin-bottom: 15px;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+.filter-section:last-child { border-bottom: none; }
+
+.form-check { 
+    padding-left: 1.5rem; 
+    margin-bottom: 0.3rem;
+    min-height: 1.3rem;
+}
+.form-check-label { 
+    font-size: 0.85rem; 
+    cursor: pointer; 
+    user-select: none; 
 }
 
-.filter-section:last-child {
-    border-bottom: none;
+.filter-section .mb-3 {
+    margin-bottom: 0.5rem !important;
+}
+.filter-section .form-label {
+    margin-bottom: 0.25rem;
 }
 
-.form-check {
-    padding-left: 1.5rem;
-    margin-bottom: 8px;
-}
-
-.form-check-label {
-    font-size: 0.85rem;
-    cursor: pointer;
-    user-select: none;
-}
-
-/* 세일 카드 - 작고 간략하게 */
+/* 세일 카드 (기존과 동일) */
 .sale-card {
     background: #fff;
     border-radius: 8px;
@@ -53,22 +64,16 @@ body {
     height: 100%;
     position: relative;
 }
-
 .sale-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-
 .sale-card-img {
     width: 100%;
     height: 120px;
     object-fit: cover;
 }
-
-.sale-card-body {
-    padding: 10px;
-}
-
+.sale-card-body { padding: 10px; }
 .sale-title {
     font-size: 0.85rem;
     font-weight: 600;
@@ -82,20 +87,13 @@ body {
     min-height: 38px;
     line-height: 1.3;
 }
-
 .sale-price {
     font-size: 1.1rem;
     font-weight: bold;
     color: #e74c3c;
     margin-bottom: 6px;
 }
-
-.sale-store {
-    font-size: 0.75rem;
-    color: #666;
-    margin-bottom: 6px;
-}
-
+.sale-store { font-size: 0.75rem; color: #666; margin-bottom: 6px; }
 .sale-meta {
     display: flex;
     justify-content: space-between;
@@ -104,14 +102,7 @@ body {
     border-top: 1px solid #f0f0f0;
     padding-top: 6px;
 }
-
-.sale-meta span {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-}
-
-/* 소스 사이트 배지 - 상시 표시 */
+.sale-meta span { display: flex; align-items: center; gap: 2px; }
 .sale-source-badge {
     position: absolute;
     top: 8px;
@@ -125,40 +116,127 @@ body {
     z-index: 10;
 }
 
-/* 그리드 간격 축소 */
-.row.g-4 {
-    --bs-gutter-x: 0.75rem;
-    --bs-gutter-y: 0.75rem;
+/* 로딩/페이지네이션 (기존과 동일) */
+.spinner-border { width: 3rem; height: 3rem; }
+.pagination { justify-content: center; }
+.page-link { color: #0d6efd; font-size: 0.85rem; }
+.page-item.active .page-link { background-color: #0d6efd; border-color: #0d6efd; }
+
+
+/* ========== [수정] 반응형 레이아웃 ========== */
+
+/* 모바일/태블릿(992px 미만) 헤더 패딩 */
+.container-xl {
+    /* 모바일 2줄 헤더 높이만큼 띄움. (약 110px) */
+    padding-top:20px; 
+    margin-top: 0 !important;
 }
 
-/* 반응형 */
-@media (max-width: 768px) {
-    .filter-sidebar {
-        position: static !important;
+/* 💡 [수정] 5. 모바일 카드 (2열, 작은 간격, 카드 크기 축소) */
+@media (max-width: 991.98px) { /* 💡 [요청 3] md(767.98px) -> lg(991.98px)로 변경하여 태블릿에서 PC 레이아웃 유지 */
+    /* 모바일에서는 g-2 적용 */
+    .main-content .row {
+        --bs-gutter-x: 0.5rem;
+        --bs-gutter-y: 0.5rem;
     }
     
+    /* 💡 모바일/태블릿에서 2열(col-6) 강제 */
+    .main-content #saleList > div {
+        flex: 0 0 auto;
+        width: 50%;
+    }
+    
+    /* 💡 카드 크기 축소 (더 많이 보이게) */
     .sale-card-img {
-        height: 100px;
+        height: 110px; 
+    }
+    .sale-card-body {
+        padding: 8px;
+    }
+    .sale-title {
+        font-size: 0.75rem; 
+        min-height: 32px; /* 2줄 높이 */
+        margin-bottom: 4px;
+    }
+    .sale-price {
+        font-size: 0.9rem;
+        margin-bottom: 4px;
+    }
+    .sale-store {
+        font-size: 0.7rem;
+        margin-bottom: 4px;
+    }
+    .sale-meta {
+        font-size: 0.65rem;
+        padding-top: 4px;
+    }
+    
+    /* 💡 [요청] 햄버거 버튼 크기를 필터 버튼과 동일하게 맞춤 (좌우/크기) */
+    .navbar-toggler {
+        padding: 0.375rem 0.75rem; /* 필터 버튼과 동일한 패딩 */
+        font-size: 1rem;
+        line-height: 1.5;
+        border-color: rgba(255, 255, 255, 0.5); /* 통일된 흰색 테두리 */
+        background-color: transparent;
+        /* ms-auto가 header.html에서 제거되었으므로, flex 컨테이너에 의해 우측 끝 정렬됨 */
     }
 }
 
-/* 로딩 */
-.spinner-border {
-    width: 3rem;
-    height: 3rem;
+
+/* 💡 [수정] PC/데스크톱 (992px 이상) 레이아웃 */
+@media (min-width: 992px) { /* 💡 [요청 3] 브레이크포인트를 992px(lg)로 통일 */
+    
+    /* 💡 [요청 2, 3] PC .container-xl의 padding-top을 헤더 높이(56px+a)로 수정 */
+    .container-xl {
+        /* nav 높이 (py-2로 4px 증가)를 고려하여 여백을 60px로 설정 */
+        padding-top: 20px; 
+    }
+    
+    /* 💡 [요청 2] 헤더 내부 컨테이너는 padding-top이 0이어야 함 */
+    header nav > .container-xl {
+         padding-top: 0 !important; 
+    }
+
+    /* 💡 [요청 3] PC Offcanvas 스타일 (static, col-* 기반) */
+    .offcanvas-lg { /* offcanvas-md -> offcanvas-lg */
+        position: static;
+        transform: none;
+        visibility: visible !important;
+        border-right: none;
+        height: auto; 
+        top: auto; 
+        position: static; 
+        overflow-y: visible; 
+        padding: 0 !important; 
+        background-color: transparent; 
+    }
+    
+    /* 💡 [요청 5] PC/데스크톱 2열 */
+     .main-content #saleList > div {
+        width: 50%;
+    }
 }
 
-/* 페이지네이션 */
-.pagination {
-    justify-content: center;
+
+/* 💡 [추가] 모바일 Offcanvas 스타일 */
+.offcanvas-md {
+    width: 280px;
 }
 
-.page-link {
-    color: #0d6efd;
+/* 💡 모바일 필터 버튼은 이미 .btn-outline-light에 의해 크기/스타일이 적절히 지정됨. */
+.navbar.d-lg-none .btn-outline-light {
+    /* 햄버거 버튼 통일을 위해 주석 처리 해제 */
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* 💡 [수정] 2. PC) 푸터 스타일 (PC 너비 맞춤) */
+footer.site-footer {
+    background-color: #ffffff;
+    border-top: 1px solid #dee2e6;
+    padding: 1.5rem 0;
+    text-align: center;
     font-size: 0.85rem;
-}
-
-.page-item.active .page-link {
-    background-color: #0d6efd;
-    border-color: #0d6efd;
+    color: #6c757d;
 }

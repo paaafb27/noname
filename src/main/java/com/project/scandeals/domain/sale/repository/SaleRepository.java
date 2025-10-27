@@ -8,6 +8,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -15,17 +16,16 @@ import org.springframework.stereotype.Repository;
 import com.project.scandeals.domain.sale.entity.Sale;
 
 @Repository
-public interface SaleRepository extends JpaRepository<Sale, Long> {
-
+public interface SaleRepository extends JpaRepository<Sale, Long>, JpaSpecificationExecutor<Sale> {
 	/**
      * 최신 세일 목록 조회
      */
-    Page<Sale> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    // Page<Sale> findAllByOrderByCreatedAtDesc(Pageable pageable);
     
     /**
      * 최신 N개 조회 (Redis 캐싱용)
      */
-    @Query("SELECT s FROM Sale s " +
+	@Query("SELECT s FROM Sale s " +
     		"ORDER BY s.createdAt DESC")
     List<Sale> findLatestSaleList(Pageable pageable);
     

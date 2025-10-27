@@ -113,15 +113,19 @@ public class Sale {
     @Builder.Default
     @Comment("활성화 여부 (현재 미사용)")
     private Boolean isActive = true;  // soft delete용
-
+    
     /** 생성일시 */
     @Column(name = "created_at", nullable = false, updatable = false)
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX")  // ISO 8601 자동 파싱
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 
     /** 수정일시 */
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt ;
+    private LocalDateTime updatedAt;
+    
+    /** 수집일시 */
+    @Column(name = "crawled_at")
+    private LocalDateTime crawledAt;
     
     /**
      * 조회수 증가
@@ -138,6 +142,7 @@ public class Sale {
     	
     	this.createdAt = LocalDateTime.now();
     	this.updatedAt = LocalDateTime.now();
+    	this.crawledAt = LocalDateTime.now();
     }
     
     /**

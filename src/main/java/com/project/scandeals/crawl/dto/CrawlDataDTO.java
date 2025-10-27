@@ -21,7 +21,7 @@ public class CrawlDataDTO {
         private String title;
         
         /** 가격 */
-        private String priceStr;
+        private String price;
         
         /** 판매처 */
         private String storeName;
@@ -39,7 +39,7 @@ public class CrawlDataDTO {
         private String shippingFee;
         
         /** 댓글 수 */
-        private Integer commentCount;
+        private Integer replyCount;
         
         /** 추천 수 */
         private Integer likeCount;

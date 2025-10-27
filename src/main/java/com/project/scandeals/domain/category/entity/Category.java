@@ -3,6 +3,7 @@ package com.project.scandeals.domain.category.entity;
 import java.time.LocalDateTime;
 
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import jakarta.persistence.Column;
@@ -41,8 +42,12 @@ public class Category {
 	private String description;
 	
 	@CreationTimestamp
-	@Column(nullable = false, updatable = false)
-	private LocalDateTime creationDate;
+	@Column(name = "created_at", nullable = false, updatable = false)
+	private LocalDateTime createdAt;
+	
+	@UpdateTimestamp
+    @Column(name = "updated_at", nullable = false) 
+    private LocalDateTime updatedAt;
 	
 	public void updateName(String name) {
 		this.name = name;

@@ -2,45 +2,64 @@
 <html xmlns:th="http://www.thymeleaf.org">
 <body>
 
-<header th:fragment="header">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container-fluid">
+<header th:fragment="header" class="sticky-top shadow-sm">
+    
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary py-2">
+        <div class="container-xl px-4">
+            
             <a class="navbar-brand" href="/">
                 <i class="bi bi-basket"></i> scanDeals
             </a>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <div class="d-none d-lg-block col-lg-3"></div> 
+            
+            <form class="d-none d-lg-flex flex-grow-1 ms-0 me-auto" id="searchFormPc" style="max-width: 600px;" onsubmit="applyFilters(); return false;">
+                <input class="form-control me-2" type="search" id="searchInputPc" placeholder="검색어를 입력하세요">
+                <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+            </form>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
+            <div class="collapse navbar-collapse" id="navbarNav" style="flex-grow: 0;"> 
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item d-lg-none">
                         <a class="nav-link" href="/">
                             <i class="bi bi-house"></i> 홈
                         </a>
                     </li>
-                </ul>
-                
-                <!-- 우측 사용자 메뉴 -->
-                <div class="d-flex align-items-center">
-                    <!-- 로그인 상태 (th:if) -->
-                    <span th:if="${userName}" class="text-white me-3">
-                        <i class="bi bi-person-circle"></i> 
-                        <span th:text="${userName}">사용자</span>
-                    </span>
-                    <a th:if="${userName}" href="/logout" class="btn btn-outline-light btn-sm">
-                        <i class="bi bi-box-arrow-right"></i> 로그아웃
-                    </a>
                     
-                    <!-- 비로그인 상태 (th:unless) -->
-                    <a th:unless="${userName}" href="/login" class="btn btn-outline-light btn-sm">
-                        <i class="bi bi-box-arrow-in-right"></i> 로그인
-                    </a>
-                </div>
+                    <li class="nav-item" th:if="${userName}">
+                        <span class="nav-link text-white me-2 d-none d-lg-inline"> <i class="bi bi-person-circle"></i> 
+                            <span th:text="${userName}">사용자</span>
+                        </span>
+                        <a href="/logout" class="nav-link">
+                            <i class="bi bi-box-arrow-right"></i> 로그아웃
+                        </a>
+                    </li>
+                    <li class="nav-item" th:unless="${userName}">
+                        <a href="/login" class="nav-link">
+                            <i class="bi bi-box-arrow-in-right"></i> 로그인
+                        </a>
+                    </li>
+                </ul>
             </div>
         </div>
     </nav>
+    
+    <div class="navbar navbar-dark bg-primary d-lg-none pt-0 pb-2 px-4">
+        <div class="d-flex w-100">
+            <form class="d-flex flex-grow-1" id="searchFormMobile" onsubmit="applyFilters(); return false;">
+                <input class="form-control me-2" type="search" id="searchInputMobile" placeholder="검색어를 입력하세요">
+                <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+            </form>
+            <button class="btn btn-outline-light ms-2 flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas" aria-controls="filterOffcanvas">
+                <i class="bi bi-funnel"></i>
+            </button>
+        </div>
+    </div>
+    
 </header>
 
 </body>
