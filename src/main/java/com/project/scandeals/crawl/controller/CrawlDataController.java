@@ -1,6 +1,10 @@
 package com.project.scandeals.crawl.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -70,8 +74,14 @@ public class CrawlDataController {
 		log.info("크롤링 완료: site={}, saved={}, skipped={}", 
 				crawlDataDTO.getSite(), savedCount, skippedCount);
 		
-		return ResponseEntity.ok(
-	            String.format("Saved: %d, Skipped: %d", savedCount, skippedCount));
+		Map<String, Object> response = new HashMap<>();
+		response.put("success", true);
+		response.put("saved", savedCount);
+		response.put("skipped", skippedCount);
+		
+		return ResponseEntity.ok()
+		    .contentType(MediaType.APPLICATION_JSON)
+		    .body(response);
 				
 	}
 	

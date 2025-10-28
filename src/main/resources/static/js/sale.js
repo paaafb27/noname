@@ -120,9 +120,9 @@ function renderSaleCards(sales) {
                     <a href="${sale.productUrl}" target="_blank" class="text-decoration-none">
                         <h5 class="sale-title">${escapeHtml(sale.title)}</h5>
                     </a>
-                    <div class="sale-price">${sale.price_str || '가격 문의'}</div>
+                    <div class="sale-price">${sale.price_str || ''}</div>
                     <div class="sale-store">
-                        <i class="bi bi-shop"></i> ${escapeHtml(sale.storeName || '정보 없음')}
+                        <i class="bi bi-shop"></i> ${escapeHtml(sale.storeName || '')}
                     </div>
                     <div class="sale-meta">
                         <span><i class="bi bi-heart"></i> ${formatNumber(sale.likeCount || 0)}</span>

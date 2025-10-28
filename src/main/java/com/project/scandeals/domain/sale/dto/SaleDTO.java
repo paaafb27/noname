@@ -19,7 +19,7 @@ public class SaleDTO {
 
 	private Long id;						/** 세일 아이디 */
 	private String title;					/** 세일 제목 */
-	//private Integer price;				/** 가격 (null 허용) */
+	private Integer price;					/** 가격 (null 허용) */
 	private String price_str;				/** 가격 (null 허용) */
 	private String storeName;				/** 판매처 */
 	private String productUrl;				/** 상품 url */

@@ -44,13 +44,16 @@ public class SecurityConfig {
             
             // URL별 권한 설정
             .authorizeHttpRequests(auth -> auth
+            	// 크롤러 API는 인증 없이 접근 가능 (API Key로 검증)
+            	.requestMatchers("/api/crawl/**").permitAll()
+            	// 공개 페이지 (비회원 접근 가능)
                 .requestMatchers(
                     "/",                          	// 메인 페이지
                     "/sales/**",                  	// 세일 상세 페이지
                     "/api/sales/**",              	// 세일 조회 API
                     "/api/sales/{saleId}",        	// 세일 조회 API
                     "/api/comments/sale/**",		// 댓글 목록 조회
-                    "/api/crawl/**",              	// 크롤러 데이터 수신
+//                    "/api/crawl/**",              	// 크롤러 데이터 수신
                     "/login",                     	// 로그인 페이지
                     "/oauth/**",                  	// OAuth 콜백
                     "/oauth2/**",                 	// OAuth2 관련
