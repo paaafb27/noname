@@ -60,12 +60,12 @@ class ArcaliveScraper:
 
         try:
             driver = self._create_driver()
-            print("Chrome 브라우저 시작")
+            print(f"Chrome 브라우저 시작 : {self.url}")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
 
-                # ✅ 같은 driver 재사용
+                # 같은 driver 재사용
                 page_items = self._scrape_page(driver, page_num)
 
                 if not page_items:
@@ -87,8 +87,12 @@ class ArcaliveScraper:
                 last_time = parse_time(last_item.get('crawledAt', ''))
 
                 if not last_time:
-                    print(f"시간 파싱 실패, 크롤링 종료")
-                    break
+                    print(f"마지막 게시글 시간 파싱 실패")
+                    print(f"다음 페이지도 확인")
+                    driver.execute_script("window.stop();")
+                    driver.delete_all_cookies()
+                    page_num += 1
+                    continue
 
                 if last_time < cutoff_time:
                     print(f"마지막 게시글 {filter_minutes}분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
@@ -267,8 +271,15 @@ class ArcaliveScraper:
 
         # 등록 시간
         time_element = row.select_one('time')
-        time = time_element.get_text(strip=True) if time_element else None
-        time = to_iso8601(parse_time(time))
+        if time_element:
+            datetime_attr = time_element.get('datetime')
+            if datetime_attr:
+                time = to_iso8601(parse_time(datetime_attr))
+            else:
+                time_text = time_element.get_text(strip=True)
+                time = to_iso8601(parse_time(time_text))
+        else:
+            time = None
 
         # 댓글 수
         reply_element = row.select_one('span.info')

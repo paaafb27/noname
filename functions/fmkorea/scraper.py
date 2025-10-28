@@ -7,8 +7,12 @@ import datetime
 import sys
 import os
 import time
+import boto3  # [추가] S3 업로드를 위해 import
+
 
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException # [추가] TimeoutException import
+
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.chrome.service import Service
@@ -38,6 +42,45 @@ class FmkoreaScraper:
         # 환경 변수에서 필터링 시간 읽기 (기본값 30분)
         self.filter_minutes = int(os.environ.get('FILTER_MINUTES', 30))
 
+        # [추가] 디버깅 파일을 저장할 S3 버킷 이름 (환경 변수에서 가져오기)
+        self.s3_bucket_name = os.environ.get('S3_BUCKET_NAME')
+
+        # [추가] 에러 발생 시 스크린샷과 HTML을 S3에 저장하는 헬퍼 함수
+        def _save_debug_files_to_s3(self, driver, error_prefix):
+            if not self.s3_bucket_name:
+                print("S3 버킷 이름이 설정되지 않아 디버그 파일을 저장할 수 없습니다.")
+                return
+
+            try:
+                kst = datetime.timezone(datetime.timedelta(hours=9))
+                timestamp = datetime.datetime.now(kst).strftime('%Y%m%d_%H%M%S')
+                s3_client = boto3.client('s3')
+
+                # 1. HTML 소스 저장
+                html_filename = f"{error_prefix}_{timestamp}.html"
+                html_content = driver.page_source
+                s3_client.put_object(
+                    Bucket=self.s3_bucket_name,
+                    Key=f"debug/{self.source_site}/{html_filename}",
+                    Body=html_content.encode('utf-8'),
+                    ContentType='text/html'
+                )
+                print(f"✅ HTML 소스를 S3에 저장했습니다: {html_filename}")
+
+                # 2. 스크린샷 저장
+                screenshot_filename = f"{error_prefix}_{timestamp}.png"
+                screenshot_data = driver.get_screenshot_as_png()
+                s3_client.put_object(
+                    Bucket=self.s3_bucket_name,
+                    Key=f"debug/{self.source_site}/{screenshot_filename}",
+                    Body=screenshot_data,
+                    ContentType='image/png'
+                )
+                print(f"✅ 스크린샷을 S3에 저장했습니다: {screenshot_filename}")
+
+            except Exception as e:
+                print(f"❌ S3에 디버그 파일 저장 실패: {e}")
+
     def scrape(self):
         """페이징 크롤링 (30분 필터링)"""
         return self._scrape_with_pagination()
@@ -59,7 +102,7 @@ class FmkoreaScraper:
 
         try:
             driver = self._create_driver()
-            print("Chrome 브라우저 시작")
+            print(f"Chrome 브라우저 시작 : {self.url}")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
@@ -184,7 +227,7 @@ class FmkoreaScraper:
             driver.get(url)
 
             try:
-                WebDriverWait(driver, 15).until(
+                WebDriverWait(driver, 30).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, "div.fm_best_widget._bd_pc"))
                 )
                 print("게시글 로드 확인")
@@ -207,6 +250,11 @@ class FmkoreaScraper:
                 alternative_rows = soup.select('div.fm_best_widget._bd_pc')
                 print(f"  [DEBUG] 대체 선택자: {len(alternative_rows)}개")
 
+            if not rows:
+                # 게시글이 0개일 때도 디버깅 파일 저장
+                print(f"게시글이 0개입니다. 현재 페이지 상태를 디버깅용으로 S3에 저장합니다.")
+                self._save_debug_files_to_s3(driver, error_prefix="no_posts_found")
+
             for row in rows:
                 try:
                     # 데이터 추출
@@ -220,6 +268,8 @@ class FmkoreaScraper:
 
         except Exception as e:
             print(f"  페이지 로딩 실패: {e}")
+            # 이 경우에도 현재 상태 저장
+            self._save_debug_files_to_s3(driver, error_prefix="page_load_error")
             import traceback
             traceback.print_exc()
 

@@ -60,7 +60,7 @@ class QuasarzoneScraper:
 
         try:
             driver = self._create_driver()
-            print("Chrome 브라우저 시작")
+            print(f"Chrome 브라우저 시작 : {self.url}")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
@@ -209,7 +209,7 @@ class QuasarzoneScraper:
             for row in rows:
                 try:
                     # 데이터 추출
-                    item = self._extract_item(row)
+                    item = self._extract_item(row, driver)
 
                     if item:
                         items.append(item)
@@ -229,7 +229,7 @@ class QuasarzoneScraper:
 
         return items
 
-    def _extract_item(self, row):
+    def _extract_item(self, row, driver):
         """
         세일정보 추출
         """
@@ -260,8 +260,43 @@ class QuasarzoneScraper:
 
         # 등록 시간
         time_element = row.select_one('span.date')
-        time = time_element.get_text(strip=True) if time_element else None
-        time = to_iso8601(parse_time(time))
+        time_text = time_element.get_text(strip=True) if time_element else None
+        if time_text and '분' in time_text:
+            # 시간 추출
+            import re
+            match = re.search(r'(\d+)(분|시간)', time_text)
+
+            if match:
+                value = int(match.group(1))
+                if value <= 30:
+                    # 상세 페이지 접속 후 시간 get
+                    try:
+                        current_url = driver.current_url  # 현재 URL 저장
+                        driver.get(product_url)
+
+                        time_element_selector = 'div.util-area span.date'
+                        wait = WebDriverWait(driver, 10)
+                        time_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, time_element_selector)))
+
+                        time_text = time_element.text
+                        time = to_iso8601(parse_time(time_text))
+
+                        # 원래 페이지로 복귀
+                        driver.get(current_url)
+
+                    except Exception as e:
+                        print(f"  [상세 실패] {e}, 목록 시간 사용")
+                        time = to_iso8601(parse_time(time_text))
+
+                else: 
+                    # 30분 초과
+                    time = to_iso8601(parse_time(time_text))
+            else:
+                # 정규식 매칭 실패 > 날짜 형식
+                time = to_iso8601(parse_time(time_text))
+
+        else:
+            time = None
 
         # 댓글 수
         reply_element = row.select_one('span.board-list-comment span.ctn-count')

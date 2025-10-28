@@ -72,7 +72,7 @@ class EomisaeScraper:
 
         try:
             driver = self._create_driver()
-            print("Chrome 브라우저 시작")
+            print(f"Chrome 브라우저 시작 : {self.url}")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
@@ -279,7 +279,6 @@ class EomisaeScraper:
         # 상세 페이지 접속 후 시간 get
         try:
             driver.get(product_url)
-            # "시계 아이콘 다음의 span"이 나타날 때까지 기다립니다.
             time_element_selector = 'span.fa.fa-clock-o + span'
             wait = WebDriverWait(driver, 10)  # 상세 페이지 로딩을 위한 대기
             time_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, time_element_selector)))

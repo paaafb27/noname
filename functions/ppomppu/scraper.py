@@ -64,7 +64,7 @@ class PpomppuScraper:
 
         try:
             driver = self._create_driver()
-            print("Chrome 브라우저 시작")
+            print(f"Chrome 브라우저 시작 : {self.url}")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
@@ -293,7 +293,7 @@ class PpomppuScraper:
 
         # 댓글 수
         reply_count = 0
-        reply_element = title_element.select_one('span.baseList-c')
+        reply_element = row.select_one('span.baseList-c')
         if reply_element:
             reply_text = reply_element.get_text(strip=True)
             reply_count = extract_number_from_text(reply_text)
