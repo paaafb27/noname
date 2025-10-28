@@ -24,6 +24,8 @@ def filter_by_time(items, minutes=30):
     now = datetime.now(kst)
     cutoff_time = now - timedelta(minutes=minutes)
 
+    print(f"  [FILTER] 현재 시각: {now.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"  [FILTER] Cutoff 시각: {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')} ({minutes}분 전)")
     print(f"  [DEBUG] Cutoff Time: {cutoff_time}")
 
     filtered = []
@@ -52,43 +54,11 @@ def filter_by_time(items, minutes=30):
 
     return filtered
 
-
-def parse_iso8601(time_str):
-    """
-    ISO8601 형식 문자열을 datetime 객체로 변환
-
-    Args:
-        time_str: ISO8601 문자열 (예: 2025-10-23T22:36:00+09:00)
-
-    Returns:
-        datetime: datetime 객체 (timezone-aware)
-        None: 파싱 실패 시
-    """
-    if not time_str or not isinstance(time_str, str):
-        return None
-
-    try:
-        # ISO8601 표준 형식
-        if 'T' in time_str:
-            # +09:00 형식 처리
-            if '+' in time_str or time_str.endswith('Z'):
-                return datetime.fromisoformat(time_str.replace('Z', '+00:00'))
-            else:
-                # 타임존 없는 경우 KST 추가
-                dt = datetime.fromisoformat(time_str)
-                kst = timezone(timedelta(hours=9))
-                return dt.replace(tzinfo=kst)
-    except:
-        pass
-
-    return None
-
-
 def parse_time(time_str):
     """
     다양한 시간 문자열을 datetime 객체로 변환
 
-    None: 파싱 실패 시
+    None: 파싱 실패
     """
     if not time_str:
         return None
@@ -190,8 +160,6 @@ def parse_time(time_str):
             except:
                 pass
 
-
-
         # "MM-DD HH:MM" 형식 (올해)
         if '-' in time_str and ':' in time_str:
             try:
@@ -212,13 +180,6 @@ def parse_time(time_str):
 def to_iso8601(dt):
     """
     datetime 객체를 ISO8601 문자열로 변환
-
-    Args:
-        dt: datetime 객체, 문자열, 또는 None
-
-    Returns:
-        str: ISO8601 문자열 (예: 2025-10-23T22:36:00+09:00)
-        None: dt가 None인 경우
     """
     if dt is None:
         return None
@@ -243,3 +204,4 @@ def to_iso8601(dt):
         dt = dt.replace(tzinfo=kst)
 
     return dt.isoformat()
+

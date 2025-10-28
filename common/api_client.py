@@ -69,6 +69,19 @@ def send_to_spring_boot(api_url, api_key, site, items, max_retries=3):
                 time.sleep(2 ** attempt)
                 continue
 
+        except requests.exceptions.HTTPError as http_err:
+            print(f"❌ HTTP 에러 발생: {http_err}")
+            print(f"    - Status Code: {response.status_code}")
+            print(f"    - Response Body: {response.text}")  # 가장 중요한 로그!
+
+        except requests.exceptions.RequestException as req_err:
+            print(f"❌ 네트워크 관련 에러 발생: {req_err}")  # DNS, 연결 거부 등
+
+        except json.JSONDecodeError:
+            print("❌ JSON 파싱 에러 발생: 서버가 유효한 JSON을 반환하지 않았습니다.")
+            print(f"    - Status Code: {response.status_code}")
+            print(f"    - Response Body: {response.text}")  # HTML 에러 페이지 등이 반환되었을 수 있음
+
         except Exception as e:
             print(f"API 호출 예외 발생: {e}")
             if attempt < max_retries - 1:
@@ -82,45 +95,3 @@ def send_to_spring_boot(api_url, api_key, site, items, max_retries=3):
         'message': f'{max_retries}번 재시도 후 실패'
     }
 
-
-"""
-    Lambda 핸들러 (독립 실패)
-
-    한 사이트 크롤링 실패 시:
-    - 다른 사이트는 정상 실행
-    - 에러 로그 기록
-    - CloudWatch 알림
-
-def lambda_handler(event, context):
-    try:
-        # 크롤링 실행
-        items = scraper.scrape()
-
-        # API 전송
-        result = send_to_spring_boot(...)
-
-        return {
-            'statusCode': 200,
-            'body': json.dumps({'success': True, ...})
-        }
-
-    except Exception as e:
-        # 에러 처리
-        error_message = f"크롤링 실패: {str(e)}"
-        print(error_message)
-
-        # CloudWatch Logs에 자동 기록
-        import traceback
-        traceback.print_exc()
-
-        # 슬랙 알림
-        send_slack_alert(error_message)
-
-        return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'success': False,
-                'error': str(e)
-            })
-        }
-"""
