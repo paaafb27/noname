@@ -2,8 +2,17 @@
  * 세일 목록 로드 및 렌더링
  */
 
-// 💡 [수정] 5. 모바일) 페이지 크기를 20으로 변경
 const pageSize = 20; 
+
+// 출처 사이트 한글 매핑
+const SOURCE_SITE_MAP = {
+    'PPOMPPU': '뽐뿌',
+    'RULIWEB': '루리웹',
+    'FMKOREA': '에펨코리아',
+    'QUASARZONE': '퀘이사존',
+    'ARCALIVE': '아카라이브',
+    'EOMISAE': '어미새'
+};
 
 /**
  * 세일 목록 로드
@@ -21,28 +30,19 @@ async function loadSales(page = 0) {
             document.querySelectorAll('input[type="checkbox"][id^="site-"]:checked')
         ).map(cb => cb.value);
         
-        // 💡 [수정] 주석 처리되었더라도, 값이 없는 경우 기본값 0 또는 10000000 사용
-        const minPrice = document.getElementById('minPrice')?.value || 0;
-        const maxPrice = document.getElementById('maxPrice')?.value || 10000000;
-        const sortBy = document.getElementById('sortBy')?.value || 'latest';
-        
-        // 💡 [수정] 4. 모바일) PC와 모바일 검색창 값 동기화 및 수집
         const keywordPc = document.getElementById('searchInputPc')?.value || '';
         const keywordMobile = document.getElementById('searchInputMobile')?.value || '';
-        const keyword = keywordPc || keywordMobile; // 둘 중 하나라도 값 있으면 사용
+        const keyword = keywordPc || keywordMobile;
         
-        // (UX 개선) 두 검색창 값을 동일하게 맞춤
+        // 두 검색창 값 동기화
         if (document.getElementById('searchInputPc')) document.getElementById('searchInputPc').value = keyword;
         if (document.getElementById('searchInputMobile')) document.getElementById('searchInputMobile').value = keyword;
 
-        
         // URL 파라미터 생성
         const params = new URLSearchParams({
             page: page,
             size: pageSize,
-            sortBy: sortBy,
-            minPrice: minPrice,
-            maxPrice: maxPrice
+            sortBy: 'crawledAt'
         });
 
         if (keyword.trim() !== '') {
@@ -60,12 +60,11 @@ async function loadSales(page = 0) {
         const data = await response.json();
         
         renderSaleCards(data.content);
-        // 💡 [수정] 3. 페이징) API 응답(data)을 renderPagination에 전달
         renderPagination(data); 
         
         document.getElementById('totalCount').textContent = data.totalElements || 0;
         
-        // 💡 [수정] URL 업데이트 (페이지 새로고침 없음)
+        // URL 업데이트
         const url = new URL(window.location);
         url.search = queryString; 
         window.history.pushState({ path: url.href }, '', url.href);
@@ -99,16 +98,17 @@ function renderSaleCards(sales) {
         return;
     }
     
-    const noImageSvg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5ObyBJbWFnZTwvdGV4dD48L2RleHQ+PC9zdmc+';
+    const noImageSvg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
     
     saleList.innerHTML = sales.map(sale => {
         const imageUrl = sale.imageUrl || noImageSvg;
+        // 출처 사이트 한글 변환
+        const sourceSiteKr = SOURCE_SITE_MAP[sale.sourceSite] || sale.sourceSite;
         
-        // 💡 [요청 5] 모바일 2열(col-6), PC/태블릿 2열(col-md-6, col-lg-6) 적용
         return `
         <div class="col-6 col-md-6 col-lg-6"> 
             <div class="sale-card">
-                <span class="sale-source-badge">${sale.sourceSite || '알 수 없음'}</span>
+                <span class="sale-source-badge">${sourceSiteKr}</span>
                 <a href="${sale.productUrl}" target="_blank">
                     <img src="${imageUrl}" 
                          class="sale-card-img" 
@@ -127,7 +127,7 @@ function renderSaleCards(sales) {
                     <div class="sale-meta">
                         <span><i class="bi bi-heart"></i> ${formatNumber(sale.likeCount || 0)}</span>
                         <span><i class="bi bi-chat"></i> ${formatNumber(sale.commentCount || 0)}</span>
-                        <span>${formatDate(sale.createdAt)}</span>
+                        <span>${formatTimeHHMM(sale.crawledAt || sale.createdAt)}</span>
                     </div>
                 </div>
             </div>
@@ -137,13 +137,12 @@ function renderSaleCards(sales) {
 }
 
 /**
- * 💡 [수정] 3. 페이징) 페이지네이션 렌더링 (PC/모바일 페이징 버그 수정)
+ * 페이지네이션 렌더링 (맨앞/맨뒤 버튼 추가)
  */
 function renderPagination(data) {
     const pagination = document.getElementById('pagination');
     const totalPages = data.totalPages || 0;
-    // 💡 [수정] 3. 페이징) data.number -> data.page
-    const currentPage = data.page || 0; // 0부터 시작하는 현재 페이지 번호
+    const currentPage = data.page || 0;
     
     if (totalPages <= 1) {
         pagination.innerHTML = '';
@@ -151,6 +150,15 @@ function renderPagination(data) {
     }
     
     let html = '<ul class="pagination justify-content-center">';
+    
+    // 맨 앞으로 버튼
+    html += `
+        <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadSales(0); return false;" title="첫 페이지">
+                <i class="bi bi-chevron-double-left"></i>
+            </a>
+        </li>
+    `;
     
     // 이전 버튼
     html += `
@@ -161,19 +169,17 @@ function renderPagination(data) {
         </li>
     `;
     
-    // 💡 [수정] 페이지 번호 로직 (슬라이딩 윈도우 + 첫/끝 페이지)
+    // 페이지 번호
     let startPage = Math.max(0, currentPage - 2);
     let endPage = Math.min(totalPages - 1, currentPage + 2);
 
-    // 5개 페이지를 항상 표시하도록 조정 (가능한 경우)
-    if (currentPage < 2) { // 0, 1 페이지일 때
+    if (currentPage < 2) {
         endPage = Math.min(4, totalPages - 1);
     }
-    if (currentPage > totalPages - 3) { // 마지막 2페이지일 때
+    if (currentPage > totalPages - 3) {
         startPage = Math.max(0, totalPages - 5);
     }
     
-    // (시작 페이지가 0보다 클 경우) 첫 페이지로 가기
     if (startPage > 0) {
         html += `<li class="page-item"><a class="page-link" href="#" onclick="loadSales(0); return false;">1</a></li>`;
         if (startPage > 1) {
@@ -181,7 +187,6 @@ function renderPagination(data) {
         }
     }
 
-    // 페이지 번호 (startPage ~ endPage)
     for (let i = startPage; i <= endPage; i++) {
         html += `
             <li class="page-item ${i === currentPage ? 'active' : ''}">
@@ -192,7 +197,6 @@ function renderPagination(data) {
         `;
     }
 
-    // (끝 페이지가 totalPages보다 작을 경우) 마지막 페이지로 가기
     if (endPage < totalPages - 1) {
         if (endPage < totalPages - 2) {
              html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
@@ -209,12 +213,21 @@ function renderPagination(data) {
         </li>
     `;
     
+    // 맨 뒤로 버튼
+    html += `
+        <li class="page-item ${currentPage >= totalPages - 1 ? 'disabled' : ''}">
+            <a class="page-link" href="#" onclick="loadSales(${totalPages - 1}); return false;" title="마지막 페이지">
+                <i class="bi bi-chevron-double-right"></i>
+            </a>
+        </li>
+    `;
+    
     html += '</ul>';
     pagination.innerHTML = html;
 }
 
 /**
- * 숫자 포맷 (콤마)
+ * 숫자 포맷
  */
 function formatNumber(num) {
     return new Intl.NumberFormat('ko-KR').format(num || 0);
@@ -224,12 +237,10 @@ function formatNumber(num) {
  * 필터 적용
  */
 function applyFilters() {
-    // 💡 [수정] 모바일/PC 검색창 값 동기화
     syncSearchInputs();
-    // 필터 적용 시 항상 0페이지(첫 페이지)부터 검색
     loadSales(0);
     
-    // 💡 [추가] 모바일에서 "필터 적용" 클릭 시 Offcanvas 닫기
+    // 모바일 Offcanvas 닫기
     const offcanvasElement = document.getElementById('filterOffcanvas');
     if (offcanvasElement) {
         const offcanvas = bootstrap.Offcanvas.getInstance(offcanvasElement);
@@ -240,7 +251,7 @@ function applyFilters() {
 }
 
 /**
- * 💡 [추가] 페이지 로드 시 URL 파라미터로 필터/페이지 복원
+ * URL 파라미터로 필터/페이지 복원
  */
 function loadSalesFromUrl() {
     const params = new URLSearchParams(window.location.search);
@@ -248,18 +259,11 @@ function loadSalesFromUrl() {
     const page = parseInt(params.get('page') || '0', 10);
     const keyword = params.get('keyword') || '';
     
-    // 💡 [수정] 모바일/PC 검색창 모두 복원
-    document.getElementById('searchInputPc').value = keyword;
-    document.getElementById('searchInputMobile').value = keyword;
-    
-    if (document.getElementById('sortBy')) {
-        document.getElementById('sortBy').value = params.get('sortBy') || 'latest';
+    if (document.getElementById('searchInputPc')) {
+        document.getElementById('searchInputPc').value = keyword;
     }
-    if (document.getElementById('minPrice')) {
-        document.getElementById('minPrice').value = params.get('minPrice') || 0;
-    }
-    if (document.getElementById('maxPrice')) {
-        document.getElementById('maxPrice').value = params.get('maxPrice') || 10000000;
+    if (document.getElementById('searchInputMobile')) {
+        document.getElementById('searchInputMobile').value = keyword;
     }
     
     const sources = params.getAll('sources');
@@ -272,51 +276,36 @@ function loadSalesFromUrl() {
     loadSales(page);
 }
 
-// 💡 [추가] 두 검색창 값을 동기화하는 함수
+/**
+ * 검색창 동기화
+ */
 function syncSearchInputs() {
      const keywordPc = document.getElementById('searchInputPc');
      const keywordMobile = document.getElementById('searchInputMobile');
-     if (!keywordPc || !keywordMobile) return; // 페이지에 요소가 없는 경우 종료
+     if (!keywordPc || !keywordMobile) return;
      
-     // PC 검색창이 보이는 상태이면, 모바일 검색창 값을 PC로 복사
      if (window.getComputedStyle(keywordPc).display !== 'none') {
          if(keywordMobile.value) keywordPc.value = keywordMobile.value;
      } 
-     // 모바일 검색창이 보이는 상태이면, PC 검색창 값을 모바일로 복사
      else if (window.getComputedStyle(keywordMobile).display !== 'none') {
          if(keywordPc.value) keywordMobile.value = keywordPc.value;
      }
 }
 
-// ---------------------------------------------
-// [main.js]의 함수들 (중복 방지)
-// ---------------------------------------------
-
 /**
- * 날짜 포매팅
+ * HH:mm 시간 포맷
  */
-function formatDate(dateString) {
+function formatTimeHHMM(dateString) {
     if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const diff = now - date;
     
-    const seconds = Math.floor(diff / 1000);
-    const minutes = Math.floor(seconds / 60); // 💡 1000 -> 60 수정
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
-    
-    if (days > 7) {
-        return date.toLocaleDateString('ko-KR');
-    } else if (days > 0) {
-        return `${days}일 전`;
-    } else if (hours > 0) {
-        return `${hours}시간 전`;
-    } else if (minutes > 0) {
-         return `${minutes}분 전`;
-    } else {
-        return '방금 전';
-    } 
+    try {
+        const date = new Date(dateString);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    } catch (e) {
+        return '';
+    }
 }
 
 /**

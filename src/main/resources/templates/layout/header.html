@@ -7,18 +7,21 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary py-2">
         <div class="container-xl px-4">
             
+            <!-- 로고 -->
             <a class="navbar-brand" href="/">
-                <i class="bi bi-basket"></i> scanDeals
+                <i class="bi bi-basket"></i> ScanDeals
             </a>
             
             <div class="d-none d-lg-block col-lg-3"></div> 
             
+            <!-- PC 검색창 -->
             <form class="d-none d-lg-flex flex-grow-1 ms-0 me-auto" id="searchFormPc" style="max-width: 600px;" onsubmit="applyFilters(); return false;">
                 <input class="form-control me-2" type="search" id="searchInputPc" placeholder="검색어를 입력하세요">
-                <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+                <button class="btn btn-outline-light header-btn" type="submit"><i class="bi bi-search"></i></button>
             </form>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <!-- 햄버거 버튼 -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             
@@ -31,7 +34,8 @@
                     </li>
                     
                     <li class="nav-item" th:if="${userName}">
-                        <span class="nav-link text-white me-2 d-none d-lg-inline"> <i class="bi bi-person-circle"></i> 
+                        <span class="nav-link text-white me-2 d-none d-lg-inline">
+                            <i class="bi bi-person-circle"></i> 
                             <span th:text="${userName}">사용자</span>
                         </span>
                         <a href="/logout" class="nav-link">
@@ -39,6 +43,10 @@
                         </a>
                     </li>
                     <li class="nav-item" th:unless="${userName}">
+                        <!-- PC: 홈 버튼 추가 -->
+                        <a href="/" class="nav-link d-none d-lg-inline">
+                            <i class="bi bi-house"></i> 홈
+                        </a>
                         <a href="/login" class="nav-link">
                             <i class="bi bi-box-arrow-in-right"></i> 로그인
                         </a>
@@ -48,13 +56,17 @@
         </div>
     </nav>
     
+    <!-- 모바일 검색창 + 필터 버튼 -->
     <div class="navbar navbar-dark bg-primary d-lg-none pt-0 pb-2 px-4">
-        <div class="d-flex w-100">
+        <div class="d-flex w-100 align-items-center">
+            <!-- 검색창 -->
             <form class="d-flex flex-grow-1" id="searchFormMobile" onsubmit="applyFilters(); return false;">
                 <input class="form-control me-2" type="search" id="searchInputMobile" placeholder="검색어를 입력하세요">
-                <button class="btn btn-outline-light" type="submit"><i class="bi bi-search"></i></button>
+                <button class="btn btn-outline-light header-btn" type="submit"><i class="bi bi-search"></i></button>
             </form>
-            <button class="btn btn-outline-light ms-2 flex-shrink-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas" aria-controls="filterOffcanvas">
+            
+            <!-- 필터 버튼 -->
+            <button class="btn btn-outline-light ms-2 header-btn" type="button" data-bs-toggle="offcanvas" data-bs-target="#filterOffcanvas">
                 <i class="bi bi-funnel"></i>
             </button>
         </div>

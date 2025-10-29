@@ -203,7 +203,8 @@ public class SaleService {
 		}
 		
 		Sale saveSale = saleRepository.save(sale);
-        log.info("신규 세일 저장: id={}, title={}, price={}", saveSale.getId(), saveSale.getTitle(), saveSale.getPrice_str());
+        log.info("신규 세일 저장: id={}, title={}, price={}, store={}", 
+        		saveSale.getId(), saveSale.getTitle(), saveSale.getPrice_str(), saveSale.getStoreName());
 
 		return saveSale;
 	}

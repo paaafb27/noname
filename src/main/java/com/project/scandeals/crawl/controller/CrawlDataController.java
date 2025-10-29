@@ -39,11 +39,17 @@ public class CrawlDataController {
 			@RequestHeader("X-API-Key") String requestApiKey,
 			@RequestBody CrawlDataDTO crawlDataDTO
 	) {
+		// ✅ API Key 검증 임시 비활성화 (테스트용)
+	    if (requestApiKey != null && !apiKey.equals(requestApiKey)) {
+	        log.warn("크롤링 API 인증 실패: 수신 키={}", requestApiKey);
+	        return ResponseEntity.status(401).body("Unauthorized");
+	    }
+		
 		// API Key 검증
-		if (!apiKey.equals(requestApiKey)) {
-			log.warn("크롤링 API 인증 실패: 수신 키={}", requestApiKey);
-			return ResponseEntity.status(401).body("Unauthorized");
-		}
+//		if (!apiKey.equals(requestApiKey)) {
+//			log.warn("크롤링 API 인증 실패: 수신 키={}", requestApiKey);
+//			return ResponseEntity.status(401).body("Unauthorized");
+//		}
 		
 		int savedCount = 0;
 		int skippedCount = 0;

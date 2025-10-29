@@ -3,117 +3,106 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>scanDeals - 세일 정보 통합</title>
+    <title>ScanDeals - 세일 정보 통합</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
     
     <link rel="stylesheet" th:href="@{/css/style.css}">
-    
-    </head>
-<body class="bg-light"> <div th:replace="~{layout/header :: header}"></div>
+</head>
+<body class="bg-light">
+    <div th:replace="~{layout/header :: header}"></div>
 
-<div class="container-xl px-4">
-    <div class="row">
+    <div class="container-xl px-4">
+        <div class="row">
 
-        <aside class="offcanvas-lg offcanvas-start col-lg-3 p-0 p-lg-4" tabindex="-1" id="filterOffcanvas" aria-labelledby="filterOffcanvasLabel">
-            <div class="offcanvas-header d-lg-none"> <h5 class="offcanvas-title" id="filterOffcanvasLabel">
-                    <i class="bi bi-funnel"></i> 필터
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterOffcanvas" aria-label="Close"></button>
-            </div>
-            
-            <div class="offcanvas-body p-0">
-                <div class="filter-sidebar card shadow p-4"> 
-                    <h5 class="fw-bold text-primary mb-4 d-none d-lg-block">
+            <!-- 필터 사이드바 (스티키 적용) -->
+            <aside class="offcanvas-lg offcanvas-start col-lg-3 p-0 p-lg-4" tabindex="-1" id="filterOffcanvas" aria-labelledby="filterOffcanvasLabel">
+                <div class="offcanvas-header d-lg-none">
+                    <h5 class="offcanvas-title" id="filterOffcanvasLabel">
                         <i class="bi bi-funnel"></i> 필터
                     </h5>
-                    
-                    <div class="filter-section">
-                        <h6 class="filter-title">출처 사이트</h6>
-                        <div class="form-check"><input class="form-check-input" type="checkbox" value="PPOMPPU" id="site-ppomppu" checked><label class="form-check-label" for="site-ppomppu">뽐뿌</label></div>
-                        <div class="form-check"><input class="form-check-input" type="checkbox" value="RULIWEB" id="site-ruliweb" checked><label class="form-check-label" for="site-ruliweb">루리웹</label></div>
-                        <div class="form-check"><input class="form-check-input" type="checkbox" value="FMKOREA" id="site-fmkorea" checked><label class="form-check-label" for="site-fmkorea">에펨코리아</label></div>
-                        <div class="form-check"><input class="form-check-input" type="checkbox" value="QUASARZONE" id="site-quasarzone" checked><label class="form-check-label" for="site-quasarzone">퀘이사존</label></div>
-                        <div class="form-check"><input class="form-check-input" type="checkbox" value="ARCALIVE" id="site-arcalive" checked><label class="form-check-label" for="site-arcalive">아카라이브</label></div>
-                        <div class="form-check"><input class="form-check-input" type="checkbox" value="EOMISAE" id="site-eomisae" checked><label class="form-check-label" for="site-eomisae">어미새</label></div>
-                    </div>
-                    
-                    <button id="filter-apply-btn" class="btn btn-outline-primary w-100 mb-2" onclick="applyFilters()">
-                        <i class="bi bi-check-circle"></i> 필터 적용
-                    </button>
-                    
-                    <div class="d-flex gap-2"> 
-                        <button class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="resetFilters()">
-                            <i class="bi bi-arrow-clockwise"></i> 초기화
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterOffcanvas" aria-label="Close"></button>
+                </div>
+                
+                <div class="offcanvas-body p-0">
+                    <div class="filter-sidebar card shadow p-4"> 
+                        <h5 class="fw-bold text-primary mb-4 d-none d-lg-block">
+                            <i class="bi bi-funnel"></i> 필터
+                        </h5>
+                        
+                        <div class="filter-section">
+                            <h6 class="filter-title">출처 사이트</h6>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="PPOMPPU" id="site-ppomppu" checked><label class="form-check-label" for="site-ppomppu">뽐뿌</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="RULIWEB" id="site-ruliweb" checked><label class="form-check-label" for="site-ruliweb">루리웹</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="FMKOREA" id="site-fmkorea" checked><label class="form-check-label" for="site-fmkorea">에펨코리아</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="QUASARZONE" id="site-quasarzone" checked><label class="form-check-label" for="site-quasarzone">퀘이사존</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="ARCALIVE" id="site-arcalive" checked><label class="form-check-label" for="site-arcalive">아카라이브</label></div>
+                            <div class="form-check"><input class="form-check-input" type="checkbox" value="EOMISAE" id="site-eomisae" checked><label class="form-check-label" for="site-eomisae">어미새</label></div>
+                        </div>
+                        
+                        <button class="btn btn-outline-primary w-100 mb-2" onclick="applyFilters()">
+                            <i class="bi bi-check-circle"></i> 필터 적용
                         </button>
-                        <button class="btn btn-outline-danger btn-sm flex-grow-1" onclick="deselectAllSites()">
-                            <i class="bi bi-x-circle"></i> 전체 해제
-                        </button>
+                        
+                        <div class="d-flex gap-2"> 
+                            <button class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="resetFilters()">
+                                <i class="bi bi-arrow-clockwise"></i> 초기화
+                            </button>
+                            <button class="btn btn-outline-danger btn-sm flex-grow-1" onclick="deselectAllSites()">
+                                <i class="bi bi-x-circle"></i> 전체 해제
+                            </button>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
 
-        <main class="main-content p-4 col-lg-9">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h4 class="mb-0"><i class="bi bi-fire"></i> 세일 정보</h4>
-                <span class="badge bg-secondary">총 <strong id="totalCount">0</strong>개</span>
-            </div>
-            <div id="loading" class="text-center py-5">
-                <div class="spinner-border text-primary" role="status"><span class="visually-hidden">로딩 중...</span></div>
-            </div>
-            <div class="row g-2 g-lg-4" id="saleList" style="display: none;"></div>
-            <nav class="mt-4" id="pagination"></nav>
-        </main>
+            <main class="main-content p-4 col-lg-9">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="mb-0"><i class="bi bi-fire"></i> 세일 정보</h4>
+                    <span class="badge bg-secondary">총 <strong id="totalCount">0</strong>개</span>
+                </div>
+                <div id="loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">로딩 중...</span>
+                    </div>
+                </div>
+                <div class="row g-2 g-lg-4" id="saleList" style="display: none;"></div>
+                <nav class="mt-4" id="pagination"></nav>
+            </main>
+        </div>
     </div>
-</div>
 
-<footer th:replace="~{layout/footer :: footer}">
-</footer>
+    <!-- 맨 위로 버튼 -->
+    <button id="scrollTopBtn" class="scroll-top-btn" title="맨 위로">
+        <i class="bi bi-arrow-up"></i>
+    </button>
 
+    <footer th:replace="~{layout/footer :: footer}"></footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script th:src="@{/js/sale.js}"></script>
+    <script th:src="@{/js/scroll-top.js}"></script>
 
-<script th:src="@{/js/sale.js}"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSalesFromUrl(); 
+        });
 
-<script>
-// 페이지 로드 시 1회만 실행
-document.addEventListener('DOMContentLoaded', function() {
-    loadSalesFromUrl(); 
-});
+        function deselectAllSites() {
+            document.querySelectorAll('input[type="checkbox"][id^="site-"]').forEach(cb => {
+                cb.checked = false;
+            });
+        }
 
-// 필터 체크 전체 해제
-function deselectAllSites() {
-    document.querySelectorAll('input[type="checkbox"][id^="site-"]').forEach(cb => {
-        cb.checked = false;
-    });
-}
-
-// resetFilters 함수 (검색창 초기화 포함)
-function resetFilters() {
-    document.querySelectorAll('input[type="checkbox"][id^="site-"]').forEach(cb => {
-        cb.checked = true;
-    });
-    
-    // 💡 [수정] 주석 처리된 요소는 DOM에 없을 수 있으므로 안전하게 접근
-    if (document.getElementById('minPrice')) {
-        document.getElementById('minPrice').value = 0;
-    }
-    if (document.getElementById('maxPrice')) {
-        document.getElementById('maxPrice').value = 1000000;
-    }
-    if (document.getElementById('sortBy')) {
-        document.getElementById('sortBy').value = 'latest';
-    }
-    
-    // 💡 [수정] 모바일/PC 검색창 모두 초기화
-    document.getElementById('searchInputPc').value = ''; 
-    document.getElementById('searchInputMobile').value = ''; 
-    
-    loadSales(0);
-}
-</script>
-
+        function resetFilters() {
+            document.querySelectorAll('input[type="checkbox"][id^="site-"]').forEach(cb => {
+                cb.checked = true;
+            });
+            document.getElementById('searchInputPc').value = ''; 
+            document.getElementById('searchInputMobile').value = ''; 
+            loadSales(0);
+        }
+    </script>
 </body>
 </html>

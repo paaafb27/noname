@@ -26,6 +26,9 @@ public class CrawlDataDTO {
         /** 판매처 */
         private String storeName;
         
+        /** 판매처 */
+        private String category;
+        
         /** 상품 URL */
         private String productUrl;
         

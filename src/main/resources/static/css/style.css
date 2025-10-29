@@ -3,24 +3,54 @@ body {
     background-color: #f8f9fa;
     font-family: 'Noto Sans KR', sans-serif;
     font-size: 14px;
-    
-    /* 💡 [수정] 1. 헤더 위 빈 공간 제거 (padding-top 삭제) */
-    /* 스티키 헤더로 인해 body에 패딩을 주면 안 됨 */
-    
-    /* 💡 [수정] 모바일 좌우 스크롤 방지 */
     overflow-x: hidden; 
+    margin: 0;
+    padding: 0;
 }
 
-/* 필터 사이드바 (기존과 동일) */
+/* 컨테이너 중앙 정렬 */
+.container-xl {
+    padding-top: 20px;
+    margin: 0 auto !important;
+    max-width: 1200px;
+}
+
+/* ========== 헤더 버튼 크기 통일 ========== */
+.header-btn {
+    padding: 0.375rem 0.75rem !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
+    width: 42px !important;
+    height: 42px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+.navbar-toggler {
+    padding: 0 !important;
+    width: 42px !important;
+    height: 42px !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* ========== 필터 사이드바 (스티키) ========== */
 .filter-sidebar {
     background: #fff;
-    padding: 1.5rem; /* 💡 p-4 (1.5rem) */
+    padding: 1.5rem;
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    position: sticky;
+    top: 130px;
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
 }
+
 .filter-sidebar h5.fw-bold {
     margin-bottom: 1rem !important;
 }
+
 .filter-title {
     font-size: 0.9rem;
     font-weight: 600;
@@ -29,32 +59,30 @@ body {
     border-bottom: 2px solid #f0f0f0;
     padding-bottom: 0.5rem;
 }
+
 .filter-section {
     border-bottom: 1px solid #f0f0f0;
     padding-bottom: 0.75rem;
     margin-bottom: 0.75rem;
 }
-.filter-section:last-child { border-bottom: none; }
+
+.filter-section:last-child { 
+    border-bottom: none; 
+}
 
 .form-check { 
     padding-left: 1.5rem; 
     margin-bottom: 0.3rem;
     min-height: 1.3rem;
 }
+
 .form-check-label { 
     font-size: 0.85rem; 
     cursor: pointer; 
     user-select: none; 
 }
 
-.filter-section .mb-3 {
-    margin-bottom: 0.5rem !important;
-}
-.filter-section .form-label {
-    margin-bottom: 0.25rem;
-}
-
-/* 세일 카드 (기존과 동일) */
+/* ========== 세일 카드 ========== */
 .sale-card {
     background: #fff;
     border-radius: 8px;
@@ -63,37 +91,61 @@ body {
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
     height: 100%;
     position: relative;
+    display: flex;
+    flex-direction: column;
 }
+
 .sale-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
+
+.sale-card a {
+    text-decoration: none;
+    color: inherit;
+}
+
+/* 썸네일 이미지 - 가로세로 비율 유지하며 가득 채우기 */
 .sale-card-img {
     width: 100%;
-    height: 120px;
+    height: 180px;
     object-fit: cover;
+    object-position: center;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
 }
-.sale-card-body { padding: 10px; }
+
+.sale-card-body { 
+    padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 제목 전체 표시 */
 .sale-title {
     font-size: 0.85rem;
     font-weight: 600;
     color: #333;
-    margin-bottom: 6px;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-height: 38px;
-    line-height: 1.3;
+    margin-bottom: 8px;
+    line-height: 1.4;
+    word-break: keep-all;
+    overflow-wrap: break-word;
 }
+
 .sale-price {
     font-size: 1.1rem;
     font-weight: bold;
     color: #e74c3c;
     margin-bottom: 6px;
 }
-.sale-store { font-size: 0.75rem; color: #666; margin-bottom: 6px; }
+
+.sale-store { 
+    font-size: 0.75rem; 
+    color: #666; 
+    margin-bottom: 6px; 
+}
+
 .sale-meta {
     display: flex;
     justify-content: space-between;
@@ -101,137 +153,175 @@ body {
     color: #999;
     border-top: 1px solid #f0f0f0;
     padding-top: 6px;
+    margin-top: auto;
 }
-.sale-meta span { display: flex; align-items: center; gap: 2px; }
+
+.sale-meta span { 
+    display: flex; 
+    align-items: center; 
+    gap: 2px; 
+}
+
 .sale-source-badge {
     position: absolute;
     top: 8px;
     left: 8px;
     background: rgba(0,0,0,0.75);
     color: #fff;
-    padding: 3px 8px;
+    padding: 4px 10px;
     border-radius: 12px;
     font-size: 0.7rem;
     font-weight: 600;
     z-index: 10;
 }
 
-/* 로딩/페이지네이션 (기존과 동일) */
-.spinner-border { width: 3rem; height: 3rem; }
-.pagination { justify-content: center; }
-.page-link { color: #0d6efd; font-size: 0.85rem; }
-.page-item.active .page-link { background-color: #0d6efd; border-color: #0d6efd; }
-
-
-/* ========== [수정] 반응형 레이아웃 ========== */
-
-/* 모바일/태블릿(992px 미만) 헤더 패딩 */
-.container-xl {
-    /* 모바일 2줄 헤더 높이만큼 띄움. (약 110px) */
-    padding-top:20px; 
-    margin-top: 0 !important;
+/* ========== 맨 위로 버튼 ========== */
+.scroll-top-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    background: #0d6efd;
+    color: #fff;
+    border: none;
+    border-radius: 50%;
+    font-size: 1.5rem;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* 💡 [수정] 5. 모바일 카드 (2열, 작은 간격, 카드 크기 축소) */
-@media (max-width: 991.98px) { /* 💡 [요청 3] md(767.98px) -> lg(991.98px)로 변경하여 태블릿에서 PC 레이아웃 유지 */
-    /* 모바일에서는 g-2 적용 */
+.scroll-top-btn.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.scroll-top-btn:hover {
+    background: #0b5ed7;
+    transform: translateY(-5px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+}
+
+/* 로딩/페이지네이션 */
+.spinner-border { 
+    width: 3rem; 
+    height: 3rem; 
+}
+
+.pagination { 
+    justify-content: center; 
+}
+
+.page-link { 
+    color: #0d6efd; 
+    font-size: 0.85rem; 
+}
+
+.page-item.active .page-link { 
+    background-color: #0d6efd; 
+    border-color: #0d6efd; 
+}
+
+/* ========== 반응형 레이아웃 ========== */
+
+/* 모바일 (991.98px 미만) */
+@media (max-width: 991.98px) {
     .main-content .row {
         --bs-gutter-x: 0.5rem;
         --bs-gutter-y: 0.5rem;
     }
     
-    /* 💡 모바일/태블릿에서 2열(col-6) 강제 */
+    /* 모바일 2열 */
     .main-content #saleList > div {
         flex: 0 0 auto;
         width: 50%;
     }
     
-    /* 💡 카드 크기 축소 (더 많이 보이게) */
+    /* 카드 크기 */
     .sale-card-img {
-        height: 110px; 
+        height: 140px; 
     }
+    
     .sale-card-body {
-        padding: 8px;
+        padding: 10px;
     }
+    
     .sale-title {
         font-size: 0.75rem; 
-        min-height: 32px; /* 2줄 높이 */
-        margin-bottom: 4px;
+        margin-bottom: 6px;
     }
+    
     .sale-price {
-        font-size: 0.9rem;
+        font-size: 0.95rem;
         margin-bottom: 4px;
     }
+    
     .sale-store {
         font-size: 0.7rem;
         margin-bottom: 4px;
     }
+    
     .sale-meta {
         font-size: 0.65rem;
         padding-top: 4px;
     }
     
-    /* 💡 [요청] 햄버거 버튼 크기를 필터 버튼과 동일하게 맞춤 (좌우/크기) */
-    .navbar-toggler {
-        padding: 0.375rem 0.75rem; /* 필터 버튼과 동일한 패딩 */
-        font-size: 1rem;
-        line-height: 1.5;
-        border-color: rgba(255, 255, 255, 0.5); /* 통일된 흰색 테두리 */
-        background-color: transparent;
-        /* ms-auto가 header.html에서 제거되었으므로, flex 컨테이너에 의해 우측 끝 정렬됨 */
+    /* 맨 위로 버튼 모바일 */
+    .scroll-top-btn {
+        bottom: 20px;
+        right: 20px;
+        width: 45px;
+        height: 45px;
+        font-size: 1.3rem;
+    }
+    
+    /* 필터 스티키 해제 (모바일) */
+    .filter-sidebar {
+        position: static;
+        max-height: none;
     }
 }
 
-
-/* 💡 [수정] PC/데스크톱 (992px 이상) 레이아웃 */
-@media (min-width: 992px) { /* 💡 [요청 3] 브레이크포인트를 992px(lg)로 통일 */
-    
-    /* 💡 [요청 2, 3] PC .container-xl의 padding-top을 헤더 높이(56px+a)로 수정 */
+/* PC/데스크톱 (992px 이상) */
+@media (min-width: 992px) {
     .container-xl {
-        /* nav 높이 (py-2로 4px 증가)를 고려하여 여백을 60px로 설정 */
         padding-top: 20px; 
     }
     
-    /* 💡 [요청 2] 헤더 내부 컨테이너는 padding-top이 0이어야 함 */
     header nav > .container-xl {
-         padding-top: 0 !important; 
+        padding-top: 0 !important; 
     }
 
-    /* 💡 [요청 3] PC Offcanvas 스타일 (static, col-* 기반) */
-    .offcanvas-lg { /* offcanvas-md -> offcanvas-lg */
+    .offcanvas-lg {
         position: static;
         transform: none;
         visibility: visible !important;
         border-right: none;
         height: auto; 
         top: auto; 
-        position: static; 
         overflow-y: visible; 
         padding: 0 !important; 
         background-color: transparent; 
     }
     
-    /* 💡 [요청 5] PC/데스크톱 2열 */
-     .main-content #saleList > div {
+    /* PC 2열 */
+    .main-content #saleList > div {
         width: 50%;
     }
 }
 
-
-/* 💡 [추가] 모바일 Offcanvas 스타일 */
 .offcanvas-md {
     width: 280px;
 }
 
-/* 💡 모바일 필터 버튼은 이미 .btn-outline-light에 의해 크기/스타일이 적절히 지정됨. */
-.navbar.d-lg-none .btn-outline-light {
-    /* 햄버거 버튼 통일을 위해 주석 처리 해제 */
-    padding: 0.375rem 0.75rem;
-    font-size: 1rem;
-    line-height: 1.5;
-}
-
-/* 💡 [수정] 2. PC) 푸터 스타일 (PC 너비 맞춤) */
+/* ========== 푸터 (중앙 정렬) ========== */
 footer.site-footer {
     background-color: #ffffff;
     border-top: 1px solid #dee2e6;
@@ -239,4 +329,10 @@ footer.site-footer {
     text-align: center;
     font-size: 0.85rem;
     color: #6c757d;
+    margin-top: 3rem;
+}
+
+footer.site-footer .container-fluid {
+    max-width: 1200px;
+    margin: 0 auto;
 }
