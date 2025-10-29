@@ -17,6 +17,19 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import (
+    TimeoutException,
+    NoSuchElementException,
+    ElementClickInterceptedException,
+    ElementNotInteractableException,
+)
+from common.number_extractor import (
+    extract_price_from_text,
+    extract_shipping_fee,
+    clean_title,
+    extract_comment_count_from_title,
+    format_price, extract_number_from_text
+)
 from bs4 import BeautifulSoup
 import sys
 import os
@@ -26,12 +39,13 @@ import boto3  # [추가] S3 업로드를 위해 import
 from webdriver_manager.core.os_manager import ChromeType
 
 from common.log_util import log_item
+from common.store_extractor import clean_store_name
 
 # common 모듈
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
-from common.number_extractor import extract_price_from_title, extract_shipping_fee_from_title
+
 
 
 class RuliwebScraper:
@@ -209,6 +223,18 @@ class RuliwebScraper:
                     print("핫딜 게시판 클릭")
                     time.sleep(random.uniform(1, 3))
 
+                except TimeoutException:
+                    print("Timeout: 30초 안에 '핫딜' 요소를 찾지 못했습니다.")
+
+                except NoSuchElementException:
+                    print("요소를 찾을 수 없습니다. XPath를 다시 확인하세요.")
+
+                except ElementClickInterceptedException:
+                    print("다른 요소가 클릭을 가로막고 있습니다. 스크롤이나 대기 로직이 필요할 수 있습니다.")
+
+                except ElementNotInteractableException:
+                    print("요소가 현재 클릭 가능한 상태가 아닙니다 (예: 숨겨져 있음).")
+
                 except Exception as e:
                     print(f"핫딜 게시판 클릭 실패, 직접 이동: {e}")
                     driver.get(self.url)
@@ -307,12 +333,35 @@ class RuliwebScraper:
         """
         # 제목
         title_element = row.select_one('a.subject_link.deco')
-        if not title_element:
-            return None
-        title = title_element.get_text(strip=True)
+        raw_title = title_element.get_text(strip=True) if title_element else None
+        title = clean_title(raw_title)
+        # reply_count = extract_comment_count_from_title(title)
 
-        # URL
-        product_url = title_element['href']
+
+        # 패턴 1: 제목 맨 끝 (n / m) → n=가격, m=배송비
+        price = None
+        shipping_fee = None
+        price_shipping_pattern = r'\(([0-9,\.]+)\s*/\s*(.+?)\)\s*$'
+        match = re.search(price_shipping_pattern, raw_title)
+        if match:
+            price_text = match.group(1).replace(',', '')
+            shipping_text = match.group(2).strip()
+
+            try:
+                # 가격
+                price = float(price_text)
+            except:
+                pass
+
+            # 배송비
+            shipping_fee = extract_shipping_fee(shipping_text)
+
+            # 가격/배송비 제거한 제목
+            title = title[:match.start()].strip()
+
+        # 패턴 2: 일반 가격 추출 (common util)
+        if price is None:
+            price = extract_price_from_text(title)
 
         # 판매처
         # 1) element 확인
@@ -320,18 +369,18 @@ class RuliwebScraper:
         store_element = row.select_one('span.subject_tag')
         if store_element:
             store = store_element.get_text(strip=True)
+            store = clean_store_name(store)
         else:
             store = '기타'
 
-        # 카테고리
-        category_element = row.select_one('td.divsn.text_over a')
-        category = category_element.get_text(strip=True) if category_element else None
+        # 댓글 수
+        reply_element = row.select_one('span.num_reply')
+        reply_count = reply_element.get_text(strip=True) if reply_element else 0
+        reply_count = extract_number_from_text(reply_count)
 
-        # 가격
-        price = extract_price_from_title(title)
-
-        # 배송비
-        shipping_fee = extract_shipping_fee_from_title(title, self.source_site)
+        # 좋아요 수
+        like_element = row.select_one('td.recomd')
+        like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 등록 시간
         time_element = row.select_one('td.time')
@@ -343,20 +392,19 @@ class RuliwebScraper:
                 print(f"  [DEBUG] 파싱 실패!")
             time = to_iso8601(time_obj) if time_obj else None
 
-        # 댓글 수
-        reply_element = row.select_one('span.num_reply')
-        reply_count = reply_element.get_text(strip=True) if reply_element else 0
+        # 카테고리
+        category_element = row.select_one('td.divsn.text_over a')
+        category = category_element.get_text(strip=True) if category_element else None
 
-        # 좋아요 수
-        like_element = row.select_one('td.recomd')
-        like_count = like_element.get_text(strip=True) if like_element else 0
+        # URL
+        product_url = title_element['href']
 
         # 이미지 url
         image_url = None
 
 
         return {
-             'title': title,
+            'title': title,
             'price': price,
             'storeName': store,
             'category': category,

@@ -29,7 +29,7 @@ from common.store_extractor import clean_store_name
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
-from common.number_extractor import extract_price_from_title, extract_shipping_fee_from_title, extract_number_from_text
+from common.number_extractor import extract_number_from_text, extract_shipping_fee, extract_number_from_text
 
 
 class PpomppuScraper:
@@ -264,35 +264,65 @@ class PpomppuScraper:
         """
         # 제목
         title_element = row.select_one('a.baseList-title')
-        if not title_element:
-            return None
-        title = title_element.get_text(strip=True)
+        raw_title = title_element.get_text(strip=True) if title_element else None
 
-        # URL
-        # product_url = self.main_url + title_element['href']
-        href = title_element.get('href', '')
-        if not href:
-            print(f"  ⚠️ href 속성 없음 (제목: {title[:30]}...)")
-            return None
-        product_url = self.main_url + href
+        # (가격/배송비)
+        pattern = r'\(([0-9,\.]+)원?\s*/\s*(.+?)\)\s*$'
+        match = re.search(pattern, raw_title)
 
-        # 판매처
-        # 제목에서 추출
+        # 제목 (가격/배송비) 제거
+        title = raw_title[:match.start()].strip()
+        price = None
+        shipping_fee = None
+
+        if match:
+            # 가격
+            price_text = match.group(1).replace(',', '')
+            try:
+                if '만' in raw_title:
+                    price = int(float(price_text) * 10000)
+                else:
+                    price = int(float(price_text))
+            except:
+                pass
+
+            # 배송비
+            shipping_text = match.group(2).strip()
+            if any(kw in shipping_text for kw in ['무배', '무료', '무료배송', '공짜', '0']):
+                shipping_fee = "무료배송"
+            elif shipping_text.replace(',', '').isdigit():
+                fee = int(shipping_text.replace(',', ''))
+                shipping_fee = f"{fee}"
+            else:
+                shipping_fee = shipping_text
+
+        # 판매처 : 제목에서 추출
+        store = None
         store_element = title_element.select_one('em.baseList-head.subject_preface')
         if store_element:
-            store = clean_store_name(store_element.get_text(strip=True))
+            store = store_element.get_text(strip=True).strip('[]')
+            store = clean_store_name(store)
         else:
             store = '기타'
 
-        # 카테고리
-        category_element = row.select_one('small.baseList-small')
-        category = category_element.get_text(strip=True) if category_element else None
+        # 댓글 수
+        reply_count = 0
+        reply_element = row.select_one('span.baseList-c')
+        if reply_element:
+            reply_count = reply_element.get_text(strip=True)
 
-        # 가격
-        price = extract_price_from_title(title)
 
-        # 배송비
-        shipping_fee = extract_shipping_fee_from_title(title, self.source_site)
+        # 좋아요 수 (추천 - 비추천)
+        like_count = 0
+        like_element = row.select_one('td.baseList-rec')
+        like_text = like_element.get_text(strip=True)
+        if like_element:
+            pattern = r"(\d+)\s*-\s*(\d+)"
+            match = re.search(pattern, like_text)
+            if match:
+                like = int(match.group(1))
+                dislike = int(match.group(2))
+                like_count = like + dislike
 
         # 등록 시간
         time = None
@@ -302,19 +332,18 @@ class PpomppuScraper:
             time_obj = parse_time(time_text)
             time = to_iso8601(time_obj) if time_obj else None
 
-        # 댓글 수
-        reply_count = 0
-        reply_element = row.select_one('span.baseList-c')
-        if reply_element:
-            reply_text = reply_element.get_text(strip=True)
-            reply_count = extract_number_from_text(reply_text)
+        # 카테고리
+        category_element = row.select_one('small.baseList-small')
+        category = category_element.get_text(strip=True) if category_element else None
+        category = clean_store_name(category)
 
-        # 좋아요 수
-        like_count = 0
-        like_element = row.select_one('td.baseList-rec')
-        if like_element:
-            like_text = like_element.get_text(strip=True)
-            like_count = extract_number_from_text(like_text)
+        # URL
+        # product_url = self.main_url + title_element['href']
+        href = title_element.get('href', '')
+        if not href:
+            print(f" href 속성 없음 (제목: {raw_title[:30]}...)")
+            return None
+        product_url = self.main_url + href
 
         # 이미지 url
         image_element = row.select_one('a.baseList-thumb img')

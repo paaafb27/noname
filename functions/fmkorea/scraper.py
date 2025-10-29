@@ -5,6 +5,7 @@ URL: https://www.fmkorea.com/hotdeal
 """
 import datetime
 import random
+import re
 import sys
 import os
 import time
@@ -28,7 +29,7 @@ from common.log_util import log_item
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
-from common.number_extractor import extract_number_from_text
+from common.number_extractor import extract_number_from_text, extract_shipping_fee
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
 
 
@@ -307,21 +308,24 @@ class FmkoreaScraper:
         try:
             # 제목
             title_element = row.select_one('span.ellipsis-target')
-            if not title_element:
-                return None
-            title = title_element.get_text(strip=True)
+            raw_title = title_element.get_text(strip=True) if title_element else None
 
-            # URL
-            url_element = row.select_one('div.li a.hotdeal_var8')
-            if not url_element:
-                print(f"  ⚠️ URL 없음 (제목: {title[:30]}...)")
-                return None
+            # 댓글수 제거
+            comment_match = re.search(r'\[(\d+)\]\s*$', raw_title)
+            if comment_match:
+                title = raw_title[:comment_match.start()].strip()
+            else:
+                title = raw_title
 
-            href = url_element.get('href', '')
-            if not href:
-                print(f"  ⚠️ href 속성 없음 (제목: {title[:30]}...)")
-                return None
-            product_url = self.main_url + url_element.get('href', '')
+            # 가격
+            price_element = row.select_one('div.hotdeal_info span:nth-of-type(2) a.strong')
+            price = price_element.get_text(strip=True) if price_element else ''
+            price = extract_number_from_text(price)
+
+            # 배송비
+            shipping_fee_element = row.select_one('div.hotdeal_info span:nth-of-type(3) a.strong')
+            shipping_fee = shipping_fee_element.get_text(strip=True) if shipping_fee_element else None
+            shipping_fee = extract_shipping_fee(shipping_fee)
 
             # 판매처
             store_element = row.select_one('div.hotdeal_info span:nth-of-type(1) a.strong')
@@ -329,27 +333,6 @@ class FmkoreaScraper:
                 store = store_element.get_text(strip=True)
             else:
                 store = '기타'
-
-            # 카테고리
-            category_element = row.select_one('span.category a')
-            category = category_element.get_text(strip=True) if category_element else None
-
-            # 가격
-            price_element = row.select_one('div.hotdeal_info span:nth-of-type(2) a.strong')
-            price = price_element.get_text(strip=True) if price_element else ''
-
-            # 배송비
-            # shipping_fee_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '배송')]/a[@class='strong']"
-            shipping_fee_element = row.select_one('div.hotdeal_info span:nth-of-type(3) a.strong')
-            shipping_fee = shipping_fee_element.get_text(strip=True) if shipping_fee_element else None
-
-            # 등록 시간
-            time = None
-            time_element = row.select_one('span.regdate')
-            if time_element:
-                time_text = time_element.get_text(strip=True)
-                time_obj = parse_time(time_text)
-                time = to_iso8601(time_obj) if time_obj else None
 
             # 댓글 수
             reply_count = 0
@@ -362,8 +345,31 @@ class FmkoreaScraper:
             like_count = 0
             like_element = row.select_one('span.count')
             if like_element:
-                like_text = like_element.get_text(strip=True)
-                like_count = extract_number_from_text(like_text)
+                like_count = like_element.get_text(strip=True)
+
+            # 등록 시간
+            time = None
+            time_element = row.select_one('span.regdate')
+            if time_element:
+                time_text = time_element.get_text(strip=True)
+                time_obj = parse_time(time_text)
+                time = to_iso8601(time_obj) if time_obj else None
+
+            # URL
+            url_element = row.select_one('div.li a.hotdeal_var8')
+            if not url_element:
+                print(f"URL 없음 (제목: {title[:30]}...)")
+                return None
+
+            href = url_element.get('href', '')
+            if not href:
+                print(f"href 속성 없음 (제목: {title[:30]}...)")
+                return None
+            product_url = self.main_url + url_element.get('href', '')
+
+            # 카테고리
+            category_element = row.select_one('span.category a')
+            category = category_element.get_text(strip=True) if category_element else None
 
             # 이미지 url
             image_element = row.select_one('img.thumb')

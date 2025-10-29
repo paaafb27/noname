@@ -16,10 +16,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import sys
 import os
+import re
 
 from webdriver_manager.core.os_manager import ChromeType
 
 from common.log_util import log_item
+from common.number_extractor import extract_shipping_fee
 from common.store_extractor import extract_store
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
 
@@ -243,30 +245,58 @@ class QuasarzoneScraper:
         """
         세일정보 추출
         """
+        import re
+
         # 제목
         title_element = row.select_one('tr span.ellipsis-with-reply-cnt')
-        if not title_element:
-            return None
-        title = title_element.get_text(strip=True)
+        title = title_element.get_text(strip=True) if title_element else None
 
-        # URL
-        url_element = row.select_one('p.tit a')
-        product_url = self.main_url + url_element['href']
+        # 가격 : ￦ 19,800 (KRW)
+        price = None
+        price_element = row.select_one('span.text-orange')
+        if price_element:
+            price_text = price_element.get_text(strip=True)
+            price_match = re.search(r'[￦₩]\s*([0-9,]+)', price_text)
+            if price_match:
+                try:
+                    price = int(price_match.group(1).replace(',', ''))
+                except:
+                    pass
+
+        # 배송비
+        shipping_fee_element = row.select_one('div.market-info-sub > p:first-of-type > span:last-of-type')
+        shipping_fee = shipping_fee_element.get_text(strip=True) if price_element else None
+        shipping_fee = extract_shipping_fee(shipping_fee)
 
         # 판매처
         store = extract_store(title, self.source_site)
+        """
+        if store:
+            store_match = re.match(r'\[([^\]]+)\]', title)
+            if store_match:
+                store = store_match.group(1)
+                title = title[store_match.end():].strip()
+        """
+
+        # 댓글 수
+        reply_element = row.select_one('span.board-list-comment span.ctn-count')
+        reply_count = reply_element.get_text(strip=True) if reply_element else 0
+
+        # 좋아요 수
+        like_element = row.select_one('span.num.num.tp2')
+        like_count = like_element.get_text(strip=True) if like_element else 0
 
         # 카테고리
         category_element = row.select_one('span.category')
         category = category_element.get_text(strip=True) if category_element else None
 
-        # 가격
-        price_element = row.select_one('span.text-orange')
-        price = price_element.get_text(strip=True) if price_element else None
+        # URL
+        url_element = row.select_one('p.tit a')
+        product_url = self.main_url + url_element['href']
 
-        # 배송비
-        shipping_fee_element = row.select_one('div.market-info-sub > p:first-of-type > span:last-of-type')
-        shipping_fee = shipping_fee_element.get_text(strip=True) if price_element else None
+        # 이미지 url
+        image_element = row.select_one('a.thumb img')
+        image_url = image_element['src'] if image_element else None
 
         # 등록 시간
         time_element = row.select_one('span.date')
@@ -286,7 +316,8 @@ class QuasarzoneScraper:
 
                         time_element_selector = 'div.util-area span.date'
                         wait = WebDriverWait(driver, 10)
-                        time_element = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, time_element_selector)))
+                        time_element = wait.until(
+                            EC.presence_of_element_located((By.CSS_SELECTOR, time_element_selector)))
 
                         time_text = time_element.text
                         time = to_iso8601(parse_time(time_text))
@@ -298,7 +329,7 @@ class QuasarzoneScraper:
                         print(f"  [상세 실패] {e}, 목록 시간 사용")
                         time = to_iso8601(parse_time(time_text))
 
-                else: 
+                else:
                     # 30분 초과
                     time = to_iso8601(parse_time(time_text))
             else:
@@ -307,18 +338,6 @@ class QuasarzoneScraper:
 
         else:
             time = None
-
-        # 댓글 수
-        reply_element = row.select_one('span.board-list-comment span.ctn-count')
-        reply_count = reply_element.get_text(strip=True) if reply_element else 0
-
-        # 좋아요 수
-        like_element = row.select_one('span.num.num.tp2')
-        like_count = like_element.get_text(strip=True) if like_element else 0
-
-        # 이미지 url
-        image_element = row.select_one('a.thumb img')
-        image_url = image_element['src'] if image_element else None
 
         return {
             'title': title,

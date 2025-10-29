@@ -13,6 +13,13 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from common.number_extractor import (
+    extract_price_from_text,
+    extract_shipping_fee,
+    clean_title,
+    extract_comment_count_from_title,
+    format_price
+)
 from bs4 import BeautifulSoup
 import sys
 import os
@@ -255,41 +262,25 @@ class ArcaliveScraper:
         """
         # 제목
         title_element = row.select_one('a.title.hybrid-title')
-        if not title_element:
-            return None
-        title = title_element.get_text(strip=True)
+        raw_title = title_element.get_text(strip=True) if title_element else None
 
-        # url
-        url_element = row.select_one('div.vrow.hybrid a.title.preview-image')
-        product_url = self.main_url + url_element['href']
-
-        # 판매처
-        store_element = row.select_one('span.deal-store')
-        store = store_element.get_text(strip=True) if store_element else '기타'
-
-        # 카테고리
-        category_element = row.select_one('a.badge')
-        category = category_element.get_text(strip=True) if category_element else None
+        # 댓글수 추출 후 제목 정리
+        # comment_count = extract_comment_count_from_title(raw_title)
+        title = clean_title(raw_title)
 
         # 가격
         price_element = row.select_one('span.deal-price')
         price = price_element.get_text(strip=True) if price_element else None
+        price = extract_price_from_text(price)
 
         # 배송비
         shipping_fee_element = row.select_one('span.deal-delivery')
-        shipping_fee = shipping_fee_element.get_text(strip=True) if store_element else None
+        shipping_fee = shipping_fee_element.get_text(strip=True) if shipping_fee_element else None
+        shipping_fee = extract_shipping_fee(shipping_fee)
 
-        # 등록 시간
-        time_element = row.select_one('time')
-        if time_element:
-            datetime_attr = time_element.get('datetime')
-            if datetime_attr:
-                time = to_iso8601(parse_time(datetime_attr))
-            else:
-                time_text = time_element.get_text(strip=True)
-                time = to_iso8601(parse_time(time_text))
-        else:
-            time = None
+        # 판매처
+        store_element = row.select_one('span.deal-store')
+        store = store_element.get_text(strip=True) if store_element else '기타'
 
         # 댓글 수
         reply_element = row.select_one('span.info')
@@ -303,6 +294,26 @@ class ArcaliveScraper:
         like_element = row.select_one('span.vcol.col-rate')
         like_count = like_element.get_text(strip=True) if like_element else 0
         like_count = extract_number_from_text(like_count)
+
+        # 등록 시간
+        time_element = row.select_one('time')
+        if time_element:
+            datetime_attr = time_element.get('datetime')
+            if datetime_attr:
+                time = to_iso8601(parse_time(datetime_attr))
+            else:
+                time_text = time_element.get_text(strip=True)
+                time = to_iso8601(parse_time(time_text))
+        else:
+            time = None
+
+        # 카테고리
+        category_element = row.select_one('a.badge')
+        category = category_element.get_text(strip=True) if category_element else None
+
+        # url
+        url_element = row.select_one('div.vrow.hybrid a.title.preview-image')
+        product_url = self.main_url + url_element['href']
 
         # 이미지 url
         image_element = row.select_one('a.title.preview-image img')

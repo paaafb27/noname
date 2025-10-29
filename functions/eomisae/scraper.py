@@ -13,6 +13,12 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from common.number_extractor import (
+    extract_price_from_text,
+    extract_shipping_fee,
+    format_price,
+    extract_number_from_text
+)
 from bs4 import BeautifulSoup
 import sys
 import os
@@ -21,7 +27,6 @@ import re
 from webdriver_manager.core.os_manager import ChromeType
 
 from common.log_util import log_item
-from common.number_extractor import extract_price_from_title, extract_number_from_text
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
 from common.store_extractor import extract_store
 
@@ -252,7 +257,7 @@ class EomisaeScraper:
                         continue
 
                     # 데이터 추출
-                    item = self._extract_item(card, driver)
+                    item = self._extract_item(card, driver, url)
                     if item:
                         items.append(item)
 
@@ -271,15 +276,34 @@ class EomisaeScraper:
 
         return items
 
-    def _extract_item(self, card, driver):
+    def _extract_item(self, card, driver, url):
         """
         세일정보 추출
         """
         # 제목
         title_element = card.select_one('a.pjax')
-        if not title_element:
-            return None
-        title = title_element.get_text(strip=True)
+        title = title_element.get_text(strip=True) if title_element else None
+
+        # 가격
+        price = extract_price_from_text(title)
+
+        # 배송비
+        shipping_fee = extract_shipping_fee(title)
+
+        # 판매처: 제목 첫 단어
+        # ex) "금강제화 더비" → "금강제화"
+        # first_word = title.split()[0] if title else '기타'
+        store = extract_store(title, self.source_site)
+
+        # 댓글 수
+        reply_element = card.select_one('div.card_content span:nth-of-type(2).fr')
+        reply_count = reply_element.get_text(strip=True) if reply_element else None
+        reply_count = extract_number_from_text(reply_count)
+
+        # 추천 수
+        like_element = card.select_one('div.card_content span:nth-of-type(3).fr')
+        like_count = like_element.get_text(strip=True) if like_element else None
+        like_count = extract_number_from_text(like_count)
 
         # URL
         product_url = title_element['href']
@@ -301,27 +325,10 @@ class EomisaeScraper:
             print(f"  상세 페이지 시간 추출 실패: {product_url}, 에러: {e}")
             time = None  # 시간 추출 실패 시 None으로 처리
 
-        # 판매처: 제목 첫 단어
-        # ex) "금강제화 더비" → "금강제화"
-        #first_word = title.split()[0] if title else '기타'
-        store = extract_store(title)
-
-        # 가격 : 일관된 형식 없음
-        price = extract_price_from_title(title)
-
-        # 배송비
-        # title에 '무배' 키워드가 있으면 0 없으면 ''
-        shipping_fee = ''
-
-        # 댓글 수
-        reply_element = card.select_one('div.card_content span:nth-of-type(2).fr')
-        reply_count = reply_element.get_text(strip=True) if reply_element else None
-        reply_count = extract_number_from_text(reply_count)
-
-        # 추천 수
-        like_element = card.select_one('div.card_content span:nth-of-type(3).fr')
-        like_count = like_element.get_text(strip=True) if like_element else None
-        like_count = extract_number_from_text(like_count)
+        # 카테고리
+        category = None
+        if 'os' in url:
+            category = "패션"
 
         # 이미지 url
         img_element = card.select_one('div.tmb_wrp img.tmb')
@@ -331,7 +338,7 @@ class EomisaeScraper:
             'title': title,
             'price': price,
             'storeName': store,
-            #'category': category,
+            'category': category,
             'shippingFee': shipping_fee,
             'productUrl': product_url,
             'imageUrl': image_url,
