@@ -1,0 +1,99 @@
+{
+    "family": "scandeals-ppomppu",
+    "executionRoleArn": "arn:aws:iam::ACCOUNT_ID:role/ecsTaskExecutionRole",
+    "taskRoleArn": "arn:aws:iam::ACCOUNT_ID:role/EcsTaskRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "2048",
+    "containerDefinitions": [
+        {
+            "name": "ppomppu-crawler",
+            "image": "ACCOUNT_ID.dkr.ecr.ap-northeast-2.amazonaws.com/scandeals-crawler:latest",
+            "essential": true,
+            "environment": [
+                {
+                    "name": "API_URL",
+                    "value": "https://scandeals.net/api/crawl/data"
+                },
+                {
+                    "name": "API_KEY",
+                    "value": "여기에_실제_운영_API_키를_입력하세요"
+                },
+                {
+                    "name": "FILTER_MINUTES",
+                    "value": "30"
+                }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/scandeals-ppomppu",
+                    "awslogs-region": "ap-northeast-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ]
+}```
+
+---
+
+### STEP 2: Placeholder 값 채우기 (가장 중요!)
+
+방금 만든 `template.json` 파일을 에디터로 열고, 아래 안내에 따라 **4개의 값을 실제 값으로 수정**해주세요.
+
+1.  **`executionRoleArn`**:
+    *   **찾는 곳**: AWS 콘솔 → IAM → 역할(Roles) → `ecsTaskExecutionRole` 검색 후 클릭 → ARN 복사
+    *   **설명**: Fargate가 ECR에서 Docker 이미지를 가져오고 CloudWatch에 로그를 쓸 수 있게 해주는 권한입니다.
+    *   **수정 예시**: `"arn:aws:iam::127679825681:role/ecsTaskExecutionRole"`
+
+2.  **`taskRoleArn`** (선택 사항):
+    *   **찾는 곳**: AWS 콘솔 → IAM → 역할(Roles) → `EcsTaskRole` 또는 유사한 이름의 역할 검색 후 클릭 → ARN 복사
+    *   **설명**: 컨테이너 안의 애플리케이션이 다른 AWS 서비스(예: S3)에 접근할 때 필요한 권한입니다. 만약 이런 역할이 없다면, **이 `"taskRoleArn": "...",` 한 줄을 통째로 삭제**하셔도 괜찮습니다.
+    *   **수정 예시**: `"arn:aws:iam::127679825681:role/EcsTaskRole"`
+
+3.  **`image`**:
+    *   **찾는 곳**: AWS 콘솔 → Elastic Container Registry (ECR) → 리포지토리(Repositories) → `scandeals-crawler` 클릭 → 이미지(Images) 탭에서 최신 버전의 **URI 복사**
+    *   **설명**: 실행할 크롤러 Docker 이미지의 주소입니다.
+    *   **수정 예시**: `"127679825681.dkr.ecr.ap-northeast-2.amazonaws.com/scandeals-crawler:latest"`
+
+4.  **`API_KEY`**의 `value`:
+    *   **찾는 곳**: 로컬 PC의 Spring Boot 프로젝트 (`application.yml` 등)
+    *   **설명**: 서버와 크롤러 간의 비밀 암호입니다.
+    *   **수정 예시**: `"test-key-for-development-only"` (또는 실제 운영 키)
+
+모든 값을 수정한 `template.json` 파일은 아래와 같은 모습이 됩니다.
+
+**최종 수정 완료된 `template.json` 예시:**
+```json
+{
+    "family": "scandeals-ppomppu",
+    "executionRoleArn": "arn:aws:iam::127679825681:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "requiresCompatibilities": [ "FARGATE" ],
+    "cpu": "1024",
+    "memory": "2048",
+    "containerDefinitions": [
+        {
+            "name": "ppomppu-crawler",
+            "image": "127679825681.dkr.ecr.ap-northeast-2.amazonaws.com/scandeals-crawler:latest",
+            "essential": true,
+            "environment": [
+                { "name": "API_URL", "value": "https://scandeals.net/api/crawl/data" },
+                { "name": "API_KEY", "value": "test-key-for-development-only" },
+                { "name": "FILTER_MINUTES", "value": "30" }
+            ],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/ecs/scandeals-ppomppu",
+                    "awslogs-region": "ap-northeast-2",
+                    "awslogs-stream-prefix": "ecs"
+                }
+            }
+        }
+    ]
+}
