@@ -1,32 +1,92 @@
-ï»¿# ===== ¼³Á¤ =====
-$SITES = @("arcalive", "eomisae", "fmkorea", "ppomppu", "quasarzone", "ruliweb")
-$ECR_URL = "127679825681.dkr.ecr.ap-northeast-2.amazonaws.com"
+ï»¿# build-all.ps1 - Docker v2 ë°©ì‹ ë¹Œë“œ ìŠ¤í¬ë¦½íŠ¸
+# ìœ„ì¹˜: F:\scandeals-crawler\deploy\build-all.ps1
+
+$ErrorActionPreference = "Stop"
+$ACCOUNT_ID = "127679825681"
+$REGION = "ap-northeast-2"
 $REPO_NAME = "scandeals-crawler"
-# =================
+$SITES = @("ppomppu", "ruliweb", "quasarzone", "arcalive", "eomisae", "fmkorea")
 
-Write-Host "[0/3] ECR ·Î±×ÀÎ ½Ãµµ..." -ForegroundColor Yellow
-aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_URL
-if ($LASTEXITCODE -ne 0) { Write-Host "[¿À·ù] ECR ·Î±×ÀÎ ½ÇÆĞ" -ForegroundColor Red; return }
-Write-Host "ECR ·Î±×ÀÎ ¼º°ø!" -ForegroundColor Green
+Write-Host "`n================================================================" -ForegroundColor Cyan
+Write-Host "ğŸš€ Docker v2 ë°©ì‹ ë¹Œë“œ & ECR í‘¸ì‹œ" -ForegroundColor Cyan
+Write-Host "================================================================`n" -ForegroundColor Cyan
 
-Write-Host "`n[1/3] Docker ÀÌ¹ÌÁö ºôµå¸¦ ½ÃÀÛÇÕ´Ï´Ù. (ÃÑ ${SITES.Count}°³)" -ForegroundColor Cyan
-foreach ($site in $SITES) {
-    Write-Host "`n===== [$site] ºôµå ½ÃÀÛ =====" -ForegroundColor Yellow
-    $TAG_LOCAL = "$REPO_NAME`:$site"
-    $TAG_ECR = "$ECR_URL/$REPO_NAME`:$site"
-    
-    # [¼öÁ¤µÊ] deploy Æú´õ ±âÁØ »ó´ë °æ·Î
-    $DOCKERFILE_PATH = "..\functions\$site\Dockerfile"
+# CRITICAL: DOCKER_BUILDKIT=0 ê°•ì œ
+$env:DOCKER_BUILDKIT = "0"
+Write-Host "âœ… DOCKER_BUILDKIT=0 ì„¤ì • ì™„ë£Œ`n" -ForegroundColor Green
 
-    # [¼öÁ¤µÊ] ºôµå ÄÁÅØ½ºÆ®¸¦ ·çÆ® Æú´õ(..)·Î ÁöÁ¤
-    docker build -t $TAG_LOCAL -t $TAG_ECR -f $DOCKERFILE_PATH ..
-    
-    if ($LASTEXITCODE -ne 0) { Write-Host "[$site] ºôµå ½ÇÆĞ! Áß´Ü." -ForegroundColor Red; return }
-    Write-Host "[$site] ºôµå ¼º°ø." -ForegroundColor Green
-    
-    Write-Host "===== [$site] ECR Çª½Ã ½ÃÀÛ =====" -ForegroundColor Yellow
-    docker push $TAG_ECR
-    if ($LASTEXITCODE -ne 0) { Write-Host "[$site] Çª½Ã ½ÇÆĞ! Áß´Ü." -ForegroundColor Red; return }
-    Write-Host "[$site] ECR Çª½Ã ¼º°ø!" -ForegroundColor Green
+# ECR ë¡œê·¸ì¸
+Write-Host "ğŸ“Œ ECR ë¡œê·¸ì¸..." -ForegroundColor Yellow
+aws ecr get-login-password --region $REGION | docker login --username AWS --password-stdin "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "âŒ ECR ë¡œê·¸ì¸ ì‹¤íŒ¨!" -ForegroundColor Red
+    exit 1
 }
-Write-Host "`n[3/3] ¸ğµç ÀÛ¾÷ ¿Ï·á! ??" -ForegroundColor Cyan
+Write-Host "âœ… ECR ë¡œê·¸ì¸ ì™„ë£Œ`n" -ForegroundColor Green
+
+# í”„ë¡œì íŠ¸ ë£¨íŠ¸ë¡œ ì´ë™
+Set-Location "F:\scandeals-crawler"
+Write-Host "ğŸ“‚ ì‘ì—… ë””ë ‰í† ë¦¬: $(Get-Location)`n" -ForegroundColor White
+
+$totalStart = Get-Date
+$successCount = 0
+
+foreach ($site in $SITES) {
+    Write-Host "`nâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€" -ForegroundColor Gray
+    Write-Host "[$site] ë¹Œë“œ ì‹œì‘..." -ForegroundColor Cyan
+    Write-Host "â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€" -ForegroundColor Gray
+
+    $IMAGE_URI = "${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${REPO_NAME}:${site}-latest"
+
+    try {
+        # Docker v2 ë°©ì‹ ë¹Œë“œ (buildx ì‚¬ìš© ì•ˆ í•¨!)
+        Write-Host "  [1/2] Docker ë¹Œë“œ ì¤‘..." -ForegroundColor White
+
+        docker build `
+            --platform linux/amd64 `
+            -t $IMAGE_URI `
+            -f "functions/$site/Dockerfile" `
+            .
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "Docker ë¹Œë“œ ì‹¤íŒ¨"
+        }
+
+        Write-Host "  âœ… ë¹Œë“œ ì™„ë£Œ" -ForegroundColor Green
+
+        # ECR í‘¸ì‹œ
+        Write-Host "  [2/2] ECR í‘¸ì‹œ ì¤‘..." -ForegroundColor White
+
+        docker push $IMAGE_URI
+
+        if ($LASTEXITCODE -ne 0) {
+            throw "ECR í‘¸ì‹œ ì‹¤íŒ¨"
+        }
+
+        Write-Host "  âœ… í‘¸ì‹œ ì™„ë£Œ`n" -ForegroundColor Green
+        $successCount++
+
+    } catch {
+        Write-Host "  âŒ ì‹¤íŒ¨: $_`n" -ForegroundColor Red
+    }
+}
+
+# ì›ë˜ ë””ë ‰í† ë¦¬ë¡œ ë³µê·€
+Set-Location "F:\scandeals-crawler\deploy"
+
+$totalDuration = ((Get-Date) - $totalStart).TotalMinutes
+
+Write-Host "`n================================================================" -ForegroundColor Cyan
+Write-Host "ğŸ“Š ìµœì¢… ê²°ê³¼" -ForegroundColor Cyan
+Write-Host "================================================================" -ForegroundColor Cyan
+Write-Host "âœ… ì„±ê³µ: $successCount / 6" -ForegroundColor Green
+Write-Host "â±ï¸  ì†Œìš” ì‹œê°„: $([math]::Round($totalDuration, 1))ë¶„" -ForegroundColor White
+Write-Host "================================================================`n" -ForegroundColor Cyan
+
+if ($successCount -eq 6) {
+    Write-Host "ğŸ‰ ëª¨ë“  ì´ë¯¸ì§€ ë¹Œë“œ & í‘¸ì‹œ ì™„ë£Œ!" -ForegroundColor Green
+    Write-Host "`në‹¤ìŒ ë‹¨ê³„: .\update-all-lambda.ps1 ì‹¤í–‰`n" -ForegroundColor Yellow
+} else {
+    Write-Host "âš ï¸  ì¼ë¶€ ì´ë¯¸ì§€ ë¹Œë“œ ì‹¤íŒ¨" -ForegroundColor Yellow
+}
