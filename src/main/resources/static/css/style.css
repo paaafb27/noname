@@ -70,16 +70,42 @@ body {
     border-bottom: none; 
 }
 
+/* 체크박스 가운데 정렬 */
 .form-check { 
-    padding-left: 1.5rem; 
-    margin-bottom: 0.3rem;
-    min-height: 1.3rem;
+    padding-left: 0 !important;
+    margin-bottom: 0.5rem;
+    min-height: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.form-check-input {
+    margin-right: 0.5rem !important;
+    margin-left: 0 !important;
 }
 
 .form-check-label { 
     font-size: 0.85rem; 
     cursor: pointer; 
-    user-select: none; 
+    user-select: none;
+    margin-bottom: 0;
+}
+
+/* ========== 세일 카드 영역 중앙 정렬 ========== */
+.main-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.main-content > .d-flex,
+.main-content > #loading,
+.main-content > .row,
+.main-content > nav {
+    width: 100%;
 }
 
 /* ========== 세일 카드 ========== */
