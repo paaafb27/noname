@@ -1,6 +1,8 @@
 import requests
 import time
 
+import json
+
 """
     Spring Boot API로 데이터 전송
 
@@ -76,6 +78,19 @@ def send_to_spring_boot(api_url, api_key, site, items, max_retries=3):
 
         except requests.exceptions.RequestException as req_err:
             print(f"❌ 네트워크 관련 에러 발생: {req_err}")  # DNS, 연결 거부 등
+            try:
+                response = requests.post(...)
+
+                if response.status_code == 200:
+                    result = response.json()  # JSON 파싱
+                    print(f"API 호출 성공: {result}")
+                    return result
+
+            except json.JSONDecodeError as e:
+                print(f"❌ JSON 파싱 실패: {e}")
+                print(f"   Response Status: {response.status_code}")
+                print(f"   Response Body: {response.text[:500]}")  # 처음 500자만
+                # 재시도 또는 실패 처리
 
         except json.JSONDecodeError:
             print("❌ JSON 파싱 에러 발생: 서버가 유효한 JSON을 반환하지 않았습니다.")

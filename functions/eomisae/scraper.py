@@ -1,4 +1,4 @@
-﻿"""
+"""
 EOMISAE 크롤러
 
 URL: https://eomisae.co.kr/
@@ -21,8 +21,9 @@ import re
 from webdriver_manager.core.os_manager import ChromeType
 
 from common.log_util import log_item
-from common.number_extractor import extract_price_from_title
+from common.number_extractor import extract_price_from_title, extract_number_from_text
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
+from common.store_extractor import extract_store
 
 # common 모듈
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
@@ -37,7 +38,7 @@ class EomisaeScraper:
             ]
         self.main_url = 'https://eomisae.co.kr/'
         self.source_site = 'EOMISAE'
-        self.max_pages = 5
+        self.max_pages = 3
         self.test_mode = False
 
         # 환경 변수에서 필터링 시간 읽기 (기본값 30분)
@@ -72,7 +73,7 @@ class EomisaeScraper:
 
         try:
             driver = self._create_driver()
-            print(f"Chrome 브라우저 시작 : {self.url}")
+            print(f"Chrome 브라우저 시작 : {url}")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
@@ -136,16 +137,22 @@ class EomisaeScraper:
 
     def _create_driver(self):
         options = Options()
-        user_agent_string = "Mozilla/5.0 (Windows NT 1.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
         # --- Fargate/Lambda 공통 옵션 (최소 옵션 유지) ---
         print("(컨테이너 환경에서 실행 - WebDriverManager 사용)")
+
+        options.add_argument(
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
-        options.add_argument(f'--user-agent={user_agent_string}')
+        options.add_argument('--referer=https://www.google.com/')
+
+        # 자동화 감지 우회
+        options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        options.add_experimental_option('useAutomationExtension', False)
 
         # [수정] 임시 디렉토리 옵션은 충돌 가능성이 있으므로 일단 제거하고 테스트
         # options.add_argument('--user-data-dir=/tmp/chrome-user-data')
@@ -156,10 +163,13 @@ class EomisaeScraper:
             print("WebDriverManager로 Chromedriver 경로 확인 및 드라이버 생성 시도...")
             # 💡 [필수 수정] WebDriverManager 사용
             #   Service 객체에 자동으로 드라이버 경로를 찾아 전달
-            service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
-            # service = Service(ChromeDriverManager().install())
+            service = Service('/usr/local/bin/chromedriver')
+            # service = Service('/usr/local/bin/chromedriver').install())
             driver = webdriver.Chrome(service=service, options=options)
             print("Chrome 드라이버 생성 성공!")
+
+            # WebDriver 속성 숨기기
+            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
             return driver
         except Exception as e:
@@ -294,7 +304,7 @@ class EomisaeScraper:
         # 판매처: 제목 첫 단어
         # ex) "금강제화 더비" → "금강제화"
         #first_word = title.split()[0] if title else '기타'
-        store = ''
+        store = extract_store(title)
 
         # 가격 : 일관된 형식 없음
         price = extract_price_from_title(title)
@@ -306,10 +316,12 @@ class EomisaeScraper:
         # 댓글 수
         reply_element = card.select_one('div.card_content span:nth-of-type(2).fr')
         reply_count = reply_element.get_text(strip=True) if reply_element else None
+        reply_count = extract_number_from_text(reply_count)
 
         # 추천 수
         like_element = card.select_one('div.card_content span:nth-of-type(3).fr')
         like_count = like_element.get_text(strip=True) if like_element else None
+        like_count = extract_number_from_text(like_count)
 
         # 이미지 url
         img_element = card.select_one('div.tmb_wrp img.tmb')

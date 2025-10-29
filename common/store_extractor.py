@@ -29,4 +29,4 @@ def clean_store_name(name):
     # 특수문자
     store = re.sub(r'[\[\](){}]', '', name)
 
-    return name
+    return store

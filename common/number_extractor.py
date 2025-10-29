@@ -4,6 +4,7 @@
 
 import re
 
+
 # 가격
 def extract_price_from_title(title):
     """
@@ -27,8 +28,10 @@ def extract_price_from_title(title):
         match = re.search(pattern, title)
         if match:
             price_text = match.group(0)
-            # 가격 범위 검증
-        
+            # 숫자만 추출
+            price = re.sub(r'[^\d]', '', price_text)
+            return price
+
     # 달러
     dollar_patterns = [
         r'\$\s*\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?',  # $899, $1,299.99
@@ -51,7 +54,7 @@ def extract_price_from_title(title):
         match = re.search(pattern, title, re.IGNORECASE)
         if match:
             return match.group(0)
-    
+
     # 유로
     euro_patterns = [
         r'€\s*\d{1,3}(?:,\d{3})*(?:\.\d{1,2})?',  # €799.99
@@ -92,7 +95,6 @@ if __name__ == "__main__":
 
 # 배송비
 def extract_shipping_fee_from_title(title, site):
-
     free_keywords = ['무료', '무배', '무료배송', '배송비무료']
 
     if "PPOMPPU" in site:
@@ -123,11 +125,13 @@ def extract_shipping_fee_from_title(title, site):
         else:
             return None
 
+
 # 괄호 / 대괄호 제거
 def extract_number_from_text(text):
-
     if not text:
         return 0
+
+    text = str(text).strip()
 
     # 괄호 제거
     text = re.sub(r'[\[\](){}]', '', text)
@@ -141,7 +145,7 @@ def extract_number_from_text(text):
     # 첫 번째 숫자 그룹 사용
     number_str = numbers[0].replace(',', '')
 
-    try:
+    if number_str:
         return int(number_str)
-    except:
-        return 0
+
+    return 0

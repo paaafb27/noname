@@ -1,48 +1,63 @@
-# 1. 기반 이미지를 표준 Python 이미지로 변경
+# Fargate용 Dockerfile - Chrome 119 (안정 버전)
 FROM python:3.11-slim
 
-# 2. 작업 디렉토리 설정
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# 필요한 라이브러리 설치 (Debian 방식)
+# 시스템 패키지 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
+        wget \
         unzip \
         curl \
+        ca-certificates \
+        fonts-liberation \
+        libasound2 \
+        libatk-bridge2.0-0 \
         libatk1.0-0 \
-        libcairo2 \
+        libatspi2.0-0 \
         libcups2 \
+        libdbus-1-3 \
+        libdrm2 \
+        libgbm1 \
         libgtk-3-0 \
-        libxcomposite1 \
-        libxcursor1 \
-        libxdamage1 \
-        libxext6 \
-        libxi6 \
-        libxrandr2 \
-        libxss1 \
-        libxtst6 \
-        libpango-1.0-0 \
+        libnspr4 \
         libnss3 \
-        libgbm-dev \
-        dbus-x11 \
-        chromium \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+        libwayland-client0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxfixes3 \
+        libxkbcommon0 \
+        libxrandr2 \
+        xdg-utils && \
+    rm -rf /var/lib/apt/lists/*
 
-# Chrome 및 Chromedriver 설치 (경로 동일)
-# RUN curl -Lo /tmp/chrome.zip "https://storage.googleapis.com/chrome-for-testing-public/119.0.6045.105/linux64/chrome-linux64.zip" && unzip /tmp/chrome.zip -d /opt/
-# RUN curl -Lo /tmp/chromedriver.zip "https://storage.googleapis.com/chrome-for-testing-public/119.0.6045.105/linux64/chromedriver-linux64.zip" && unzip /tmp/chromedriver.zip -d /opt/
-# RUN chmod +x /opt/chrome-linux64/chrome /opt/chromedriver-linux64/chromedriver
+# Chrome 및 ChromeDriver 119 버전 설치 (검증된 버전)
+ENV CHROME_VERSION=119.0.6045.105
 
-# 3. Python 라이브러리 설치
+RUN wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chrome-linux64.zip" && \
+    unzip chrome-linux64.zip && \
+    mv chrome-linux64 /opt/chrome && \
+    rm chrome-linux64.zip && \
+    ln -s /opt/chrome/chrome /usr/local/bin/google-chrome && \
+    chmod +x /opt/chrome/chrome
+
+RUN wget -q "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip" && \
+    unzip chromedriver-linux64.zip && \
+    mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm -rf chromedriver-linux64.zip chromedriver-linux64
+
+# Python 라이브러리 설치
 COPY functions/arcalive/requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 4. 소스 코드 복사
+# 소스 코드 복사
 COPY functions/arcalive/lambda_function.py .
 COPY functions/arcalive/scraper.py .
 COPY common ./common
 
-# 5. ECS Fargate용 진입점 지정 (수정됨)
-# scraper.py가 아닌 lambda_function.py를 실행
-CMD ["python", "lambda_function.py"]
+# 환경변수
+ENV PYTHONUNBUFFERED=1
+
+# 실행
+CMD ["python", "-u", "lambda_function.py"]

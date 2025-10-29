@@ -1,11 +1,13 @@
 ﻿"""
-뽐뿌 크롤러
+FMKOREA 크롤러
 
-URL: https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu
-필터링: 공지, 쇼핑뽐뿌, 핫딜, 쇼핑포럼 제외
-판매처: <em class="subject_preface"> 또는 제목에서 추출
+URL: https://www.fmkorea.com/hotdeal
 """
 import datetime
+import sys
+import os
+import time
+import boto3  # [추가] S3 업로드를 위해 import
 
 
 from selenium import webdriver
@@ -16,29 +18,23 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-import sys
-import os
-import re
-
 from webdriver_manager.core.os_manager import ChromeType
 
 from common.log_util import log_item
-from common.store_extractor import clean_store_name
 
 # common 모듈
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'common'))
+from common.number_extractor import extract_number_from_text
 from common.filter_by_regtime import filter_by_time, parse_time, to_iso8601
-from common.number_extractor import extract_price_from_title, extract_shipping_fee_from_title, extract_number_from_text
 
 
-class PpomppuScraper:
+class FmkoreaScraper:
 
     def __init__(self):
-        self.url = 'https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu'
-        self.source_site = 'PPOMPPU'
-        self.main_url = 'https://www.ppomppu.co.kr/zboard/'
-        self.max_pages = 3  # 최대 페이지 제한 (무한 루프 방지)
+        self.url = 'https://www.fmkorea.com/hotdeal'
+        self.main_url = 'https://www.fmkorea.com'
+        self.source_site = 'FMKOREA'
+        self.max_pages = 5
         self.test_mode = False
 
         # 환경 변수에서 필터링 시간 읽기 (기본값 30분)
@@ -65,12 +61,12 @@ class PpomppuScraper:
 
         try:
             driver = self._create_driver()
-            print(f"Chrome 브라우저 시작 : {self.url}")
+            print("Chrome 브라우저 시작")
 
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
 
-                # ✅ 같은 driver 재사용
+                # 같은 driver 재사용
                 page_items = self._scrape_page(driver, page_num)
 
                 if not page_items:
@@ -117,7 +113,7 @@ class PpomppuScraper:
             print(f"크롤링 실패: {e}")
             import traceback
             traceback.print_exc()
-            return all_items            # 수집된 데이터라도 반환
+            return all_items        # 수집된 데이터라도 반환
 
         finally:
             if driver:
@@ -129,22 +125,16 @@ class PpomppuScraper:
 
     def _create_driver(self):
         options = Options()
+        user_agent_string = "Mozilla/5.0 (Windows NT 1.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
 
         # --- Fargate/Lambda 공통 옵션 (최소 옵션 유지) ---
         print("(컨테이너 환경에서 실행 - WebDriverManager 사용)")
-
-        options.add_argument(
-            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
         options.add_argument('--disable-gpu')
-        options.add_argument('--referer=https://www.google.com/')
-
-        # 자동화 감지 우회
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument(f'--user-agent={user_agent_string}')
 
         # [수정] 임시 디렉토리 옵션은 충돌 가능성이 있으므로 일단 제거하고 테스트
         # options.add_argument('--user-data-dir=/tmp/chrome-user-data')
@@ -155,14 +145,10 @@ class PpomppuScraper:
             print("WebDriverManager로 Chromedriver 경로 확인 및 드라이버 생성 시도...")
             # 💡 [필수 수정] WebDriverManager 사용
             #   Service 객체에 자동으로 드라이버 경로를 찾아 전달
-            # service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
+            service = Service(ChromeDriverManager(chrome_type=ChromeType.CHROMIUM).install())
             # service = Service(ChromeDriverManager().install())
-            service = Service('/usr/local/bin/chromedriver')
             driver = webdriver.Chrome(service=service, options=options)
             print("Chrome 드라이버 생성 성공!")
-
-            # WebDriver 속성 숨기기
-            driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
             return driver
         except Exception as e:
@@ -183,50 +169,48 @@ class PpomppuScraper:
         driver.set_page_load_timeout(60)
         return driver
 
+
     def _scrape_page(self, driver, page_num):
-        """
-        개별 페이지 크롤링
-        """
+
         items = []
         html = None
 
         try:
+            # 페이지 URL
             if page_num == 1:
                 url = self.url
             else:
-                url = f"{self.url}&page={page_num}"
+                url = f"{self.main_url}/index.php?mid=hotdeal&page={page_num}"
 
+            # 페이지 로드
             driver.get(url)
 
             try:
                 WebDriverWait(driver, 15).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, '#revolution_main_table'))
+                    EC.presence_of_element_located((By.CSS_SELECTOR, "div.fm_best_widget._bd_pc"))
                 )
                 print("게시글 로드 확인")
             except Exception as e:
                 # 타임아웃 되어도 계속 진행 (부분 데이터라도 수집)
                 print(f"명시적 대기 타임아웃 (계속 진행): {e}")
 
+
             # HTML 파싱
             html = driver.page_source
             soup = BeautifulSoup(html, 'lxml')
 
             # 게시글 목록
-            rows = soup.select('#revolution_main_table tbody tr.baseList')
-            print(f"페이지 {page_num}: {len(rows)}개 발견")
+            rows = soup.select('div.fm_best_widget._bd_pc li.li_best2_hotdeal0')
+            print(f"게시글 {len(rows)}개 발견")
 
             # 다른 선택자들도 시도
             if len(rows) == 0:
                 print(f"  [DEBUG] 다른 선택자 시도...")
-                alternative_rows = soup.select('#revolution_main_table')
+                alternative_rows = soup.select('div.fm_best_widget._bd_pc')
                 print(f"  [DEBUG] 대체 선택자: {len(alternative_rows)}개")
 
             for row in rows:
                 try:
-                    # 필터링 : 공지 / 광고 제외
-                    if self._is_excluded(row):
-                        continue
-
                     # 데이터 추출
                     item = self._extract_item(row)
                     if item:
@@ -237,7 +221,7 @@ class PpomppuScraper:
                     continue
 
         except Exception as e:
-            print(f"페이지 로딩 실패: {e}")
+            print(f"  페이지 로딩 실패: {e}")
             import traceback
             traceback.print_exc()
 
@@ -247,89 +231,89 @@ class PpomppuScraper:
 
         return items
 
-    def _is_excluded(self, row):
-        """
-        제외 조건:
-        - 글번호 영역에 <img> 태그 포함 (쇼핑뽐뿌, 핫딜, 쇼핑포럼)
-        """
-        numb_cell = row.select_one('td.baseList-space.baseList-numb')
-        if numb_cell and numb_cell.find('img'):
-            return True
-
-        return False
-
     def _extract_item(self, row):
         """
         세일정보 추출
         """
-        # 제목
-        title_element = row.select_one('a.baseList-title')
-        if not title_element:
+        try:
+            # 제목
+            title_element = row.select_one('span.ellipsis-target')
+            if not title_element:
+                return None
+            title = title_element.get_text(strip=True)
+
+            # URL
+            url_element = row.select_one('div.li a.hotdeal_var8')
+            if not url_element:
+                print(f"  ⚠️ URL 없음 (제목: {title[:30]}...)")
+                return None
+
+            href = url_element.get('href', '')
+            if not href:
+                print(f"  ⚠️ href 속성 없음 (제목: {title[:30]}...)")
+                return None
+            product_url = self.main_url + url_element.get('href', '')
+
+            # 판매처
+            store_element = row.select_one('div.hotdeal_info span:nth-of-type(1) a.strong')
+            if store_element:
+                store = store_element.get_text(strip=True)
+            else:
+                store = '기타'
+
+            # 카테고리
+            category_element = row.select_one('span.category a')
+            category = category_element.get_text(strip=True) if category_element else None
+
+            # 가격
+            price_element = row.select_one('div.hotdeal_info span:nth-of-type(2) a.strong')
+            price = price_element.get_text(strip=True) if price_element else ''
+
+            # 배송비
+            # shipping_fee_selector = "//div[@class='fm_best_widget _bd_pc']//li[contains(@class, 'li_best2_hotdeal0')]//span[contains(text(), '배송')]/a[@class='strong']"
+            shipping_fee_element = row.select_one('div.hotdeal_info span:nth-of-type(3) a.strong')
+            shipping_fee = shipping_fee_element.get_text(strip=True) if shipping_fee_element else None
+
+            # 등록 시간
+            time = None
+            time_element = row.select_one('span.regdate')
+            if time_element:
+                time_text = time_element.get_text(strip=True)
+                time_obj = parse_time(time_text)
+                time = to_iso8601(time_obj) if time_obj else None
+
+            # 댓글 수
+            reply_count = 0
+            reply_element = row.select_one('span.comment_count')
+            if reply_element:
+                reply_text = reply_element.get_text(strip=True)
+                reply_count = extract_number_from_text(reply_text)
+
+            # 추천 수
+            like_count = 0
+            like_element = row.select_one('span.count')
+            if like_element:
+                like_text = like_element.get_text(strip=True)
+                like_count = extract_number_from_text(like_text)
+
+            # 이미지 url
+            image_element = row.select_one('img.thumb')
+            image_url = image_element['src'] if image_element else None
+
+            return {
+                'title': title,
+                'price': price,
+                'storeName': store,
+                'category': category,
+                'shippingFee': shipping_fee,
+                'productUrl': product_url,
+                'imageUrl': image_url,
+                'replyCount': reply_count,
+                'likeCount': like_count,
+                'sourceSite': self.source_site,
+                'crawledAt': time
+            }
+
+        except Exception as e:
+            print(f"항목 추출 중 오류: {e}")
             return None
-        title = title_element.get_text(strip=True)
-
-        # URL
-        # product_url = self.main_url + title_element['href']
-        href = title_element.get('href', '')
-        if not href:
-            print(f"  ⚠️ href 속성 없음 (제목: {title[:30]}...)")
-            return None
-        product_url = self.main_url + href
-
-        # 판매처
-        # 제목에서 추출
-        store_element = title_element.select_one('em.baseList-head.subject_preface')
-        if store_element:
-            store = clean_store_name(store_element.get_text(strip=True))
-        else:
-            store = '기타'
-
-        # 카테고리
-        category_element = row.select_one('small.baseList-small')
-        category = category_element.get_text(strip=True) if category_element else None
-
-        # 가격
-        price = extract_price_from_title(title)
-
-        # 배송비
-        shipping_fee = extract_shipping_fee_from_title(title, self.source_site)
-
-        # 등록 시간
-        time = None
-        time_element = row.select_one('time.baseList-time')
-        if time_element:
-            time_text = time_element.get_text(strip=True)
-            time_obj = parse_time(time_text)
-            time = to_iso8601(time_obj) if time_obj else None
-
-        # 댓글 수
-        reply_count = 0
-        reply_element = row.select_one('span.baseList-c')
-        if reply_element:
-            reply_text = reply_element.get_text(strip=True)
-            reply_count = extract_number_from_text(reply_text)
-
-        # 좋아요 수
-        like_count = 0
-        like_element = row.select_one('td.baseList-rec')
-        if like_element:
-            like_text = like_element.get_text(strip=True)
-            like_count = extract_number_from_text(like_text)
-
-        # 이미지 url
-        image_element = row.select_one('a.baseList-thumb img')
-        image_url = image_element.get('src') if image_element else None
-
-        return {
-            'title': title,
-            'price': price,
-            'storeName': store,
-            'category': category,
-            'shippingFee': shipping_fee,
-            'productUrl': product_url,
-            'imageUrl': image_url,
-            'replyCount': reply_count,
-            'likeCount': like_count,
-            'sourceSite': self.source_site,
-            'crawledAt': time
-        }
