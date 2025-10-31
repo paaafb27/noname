@@ -1,5 +1,7 @@
 /**
  * 세일 목록 로드 및 렌더링
+ * 
+ * ✅ sourcesSiteList 파라미터 사용 (Backend DTO와 일치)
  */
 
 const pageSize = 20; 
@@ -34,23 +36,31 @@ async function loadSales(page = 0) {
         const keywordMobile = document.getElementById('searchInputMobile')?.value || '';
         const keyword = keywordPc || keywordMobile;
         
-        // 두 검색창 값 동기화
-        if (document.getElementById('searchInputPc')) document.getElementById('searchInputPc').value = keyword;
-        if (document.getElementById('searchInputMobile')) document.getElementById('searchInputMobile').value = keyword;
+        // 검색창 동기화
+        if (document.getElementById('searchInputPc')) {
+            document.getElementById('searchInputPc').value = keyword;
+        }
+        if (document.getElementById('searchInputMobile')) {
+            document.getElementById('searchInputMobile').value = keyword;
+        }
 
         // URL 파라미터 생성
         const params = new URLSearchParams({
             page: page,
             size: pageSize,
-            sortBy: 'crawledAt'
+            sortBy: 'latest'
         });
 
         if (keyword.trim() !== '') {
             params.append('keyword', keyword.trim());
         }
-        sourceSites.forEach(site => params.append('sources', site));
+        
+        // ✅ sourcesSiteList 파라미터 사용
+        sourceSites.forEach(site => params.append('sourcesSiteList', site));
         
         const queryString = params.toString();
+        console.log('🔍 API 요청:', `/api/sales?${queryString}`);
+        
         const response = await fetch(`/api/sales?${queryString}`);
         
         if (!response.ok) {
@@ -58,19 +68,15 @@ async function loadSales(page = 0) {
         }
         
         const data = await response.json();
+        console.log('✅ API 응답:', data);
         
         renderSaleCards(data.content);
-        renderPagination(data); 
+        renderPagination(data);
         
         document.getElementById('totalCount').textContent = data.totalElements || 0;
         
-        // URL 업데이트
-        const url = new URL(window.location);
-        url.search = queryString; 
-        window.history.pushState({ path: url.href }, '', url.href);
-        
     } catch (error) {
-        console.error('세일 목록 로드 실패:', error);
+        console.error('❌ 세일 목록 로드 실패:', error);
         saleList.innerHTML = `
             <div class="col-12 text-center py-5">
                 <p class="text-danger">데이터를 불러올 수 없습니다.</p>
@@ -79,7 +85,7 @@ async function loadSales(page = 0) {
         `;
     } finally {
         loading.style.display = 'none';
-        saleList.style.display = 'flex'; 
+        saleList.style.display = 'flex';
     }
 }
 
@@ -98,26 +104,22 @@ function renderSaleCards(sales) {
         return;
     }
     
-    const noImageSvg = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2VlZSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIj5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
-    
     saleList.innerHTML = sales.map(sale => {
-        const imageUrl = sale.imageUrl || noImageSvg;
-        // 출처 사이트 한글 변환
-        const sourceSiteKr = SOURCE_SITE_MAP[sale.sourceSite] || sale.sourceSite;
+        const sourceSiteKor = SOURCE_SITE_MAP[sale.sourceSite] || sale.sourceSite;
         
         return `
-        <div class="col-6 col-md-6 col-lg-6"> 
+        <div class="col-12 col-md-6 col-lg-4">
             <div class="sale-card">
-                <span class="sale-source-badge">${sourceSiteKr}</span>
-                <a href="${sale.productUrl}" target="_blank">
-                    <img src="${imageUrl}" 
-                         class="sale-card-img" 
+                <div class="sale-source-badge">${sourceSiteKor}</div>
+                <a href="${escapeHtml(sale.productUrl)}" target="_blank" rel="noopener noreferrer">
+                    <img src="${escapeHtml(sale.imageUrl || '/images/no-image.svg')}" 
                          alt="${escapeHtml(sale.title)}" 
+                         class="sale-card-img"
                          loading="lazy"
-                         onerror="this.src='${noImageSvg}'">
+                         onerror="this.src='/images/no-image.svg'">
                 </a>
                 <div class="sale-card-body">
-                    <a href="${sale.productUrl}" target="_blank" class="text-decoration-none">
+                    <a href="${escapeHtml(sale.productUrl)}" target="_blank" rel="noopener noreferrer" class="text-decoration-none">
                         <h5 class="sale-title">${escapeHtml(sale.title)}</h5>
                     </a>
                     <div class="sale-price">${sale.price_str || ''}</div>
@@ -127,7 +129,7 @@ function renderSaleCards(sales) {
                     <div class="sale-meta">
                         <span><i class="bi bi-heart"></i> ${formatNumber(sale.likeCount || 0)}</span>
                         <span><i class="bi bi-chat"></i> ${formatNumber(sale.commentCount || 0)}</span>
-                        <span>${formatTimeHHMM(sale.crawledAt || sale.createdAt)}</span>
+                        <span>${formatTimeHHMM(sale.createdAt)}</span>
                     </div>
                 </div>
             </div>
@@ -137,7 +139,7 @@ function renderSaleCards(sales) {
 }
 
 /**
- * 페이지네이션 렌더링 (맨앞/맨뒤 버튼 추가)
+ * 페이지네이션 렌더링
  */
 function renderPagination(data) {
     const pagination = document.getElementById('pagination');
@@ -151,16 +153,16 @@ function renderPagination(data) {
     
     let html = '<ul class="pagination justify-content-center">';
     
-    // 맨 앞으로 버튼
+    // 맨 앞으로
     html += `
         <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="loadSales(0); return false;" title="첫 페이지">
+            <a class="page-link" href="#" onclick="loadSales(0); return false;">
                 <i class="bi bi-chevron-double-left"></i>
             </a>
         </li>
     `;
     
-    // 이전 버튼
+    // 이전
     html += `
         <li class="page-item ${currentPage === 0 ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="loadSales(${currentPage - 1}); return false;">
@@ -190,9 +192,7 @@ function renderPagination(data) {
     for (let i = startPage; i <= endPage; i++) {
         html += `
             <li class="page-item ${i === currentPage ? 'active' : ''}">
-                <a class="page-link" href="#" onclick="loadSales(${i}); return false;">
-                    ${i + 1}
-                </a>
+                <a class="page-link" href="#" onclick="loadSales(${i}); return false;">${i + 1}</a>
             </li>
         `;
     }
@@ -204,7 +204,7 @@ function renderPagination(data) {
         html += `<li class="page-item"><a class="page-link" href="#" onclick="loadSales(${totalPages - 1}); return false;">${totalPages}</a></li>`;
     }
     
-    // 다음 버튼
+    // 다음
     html += `
         <li class="page-item ${currentPage >= totalPages - 1 ? 'disabled' : ''}">
             <a class="page-link" href="#" onclick="loadSales(${currentPage + 1}); return false;">
@@ -213,10 +213,10 @@ function renderPagination(data) {
         </li>
     `;
     
-    // 맨 뒤로 버튼
+    // 맨 뒤로
     html += `
         <li class="page-item ${currentPage >= totalPages - 1 ? 'disabled' : ''}">
-            <a class="page-link" href="#" onclick="loadSales(${totalPages - 1}); return false;" title="마지막 페이지">
+            <a class="page-link" href="#" onclick="loadSales(${totalPages - 1}); return false;">
                 <i class="bi bi-chevron-double-right"></i>
             </a>
         </li>
@@ -266,7 +266,7 @@ function loadSalesFromUrl() {
         document.getElementById('searchInputMobile').value = keyword;
     }
     
-    const sources = params.getAll('sources');
+    const sources = params.getAll('sourcesSiteList');
     if (sources.length > 0) {
         document.querySelectorAll('input[type="checkbox"][id^="site-"]').forEach(cb => {
             cb.checked = sources.includes(cb.value);

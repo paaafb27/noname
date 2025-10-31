@@ -13,7 +13,9 @@ import com.project.scandeals.domain.sale.dto.SaleSearchRequestDTO;
 import com.project.scandeals.domain.sale.service.SaleService;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/sales")
 @RequiredArgsConstructor
@@ -28,45 +30,29 @@ public class SaleController {
 	public ResponseEntity<PageResponseDTO<SaleDTO>> getSaleList(
 			@ModelAttribute SaleSearchRequestDTO requestDto) {
 		
-		// 필터 검색 여부
-		if (isFiltered(requestDto) ) {
-			// 조건 검색
-			return ResponseEntity.ok(saleService.getFilteredSaleList(requestDto));			
-		} else {
-			// 최신 검색
-			return ResponseEntity.ok(saleService.getSaleList(requestDto));
-		}
-	}
-	
-	// 필터링 조건 검사
-	private boolean isFiltered(SaleSearchRequestDTO requestDto) {
+		log.info("세일 목록 조회 요청: {}", requestDto);
 		
-		// 제목 조회
-		if (requestDto.getKeyword() != null && !requestDto.getKeyword().isBlank()) {
-			return true;
-		}
-				
-		// 출처 사이트
-		if (requestDto.getSourcesSiteList() != null && !requestDto.getSourcesSiteList().isEmpty()) {
-			return true;
-		}
-				
-		// 가격 범위
-		if (requestDto.getMinPrice() != null && requestDto.getMinPrice() > 0) {
-			return true;
-		}
+		boolean hasFilter = 
+				(requestDto.getKeyword() != null && !requestDto.getKeyword().isBlank()) ||
+		        (requestDto.getSourcesSiteList() != null && !requestDto.getSourcesSiteList().isEmpty()) ||
+		        (requestDto.getCategoryId() != null) ||
+		        (requestDto.getPage() > 0) ||
+		        (!"latest".equals(requestDto.getSortBy()));
 		
-		if (requestDto.getMaxPrice() != null && requestDto.getMaxPrice() < 100000) {
-			return true;
-		}
-		        
-		// 정렬 기준 변경 시
-		if (!"latest".equals(requestDto.getSortBy())) {
-			return true;
-		}
-				
-		return false;
+		PageResponseDTO<SaleDTO> responseDTO;
+		
+		if (hasFilter) {
+	        log.info("필터링 검색 실행");
+	        responseDTO = saleService.getFilteredSaleList(requestDto);
+	    } else {
+	        log.info("기본 목록 조회 (캐시 가능)");
+	        responseDTO = saleService.getSaleList(requestDto);
+	    }
+		
+	    return ResponseEntity.ok(responseDTO);
+
 	}
+
 	
 	/**
 	 * 세일 상세 조회

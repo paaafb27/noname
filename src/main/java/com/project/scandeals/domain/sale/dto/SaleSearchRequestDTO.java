@@ -1,6 +1,9 @@
 package com.project.scandeals.domain.sale.dto;
 
+import java.time.LocalDateTime;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 
 import jakarta.validation.constraints.Min;
 import lombok.AllArgsConstructor;
@@ -27,7 +30,7 @@ public class SaleSearchRequestDTO {
 	private Long CategoryId;
 	private String keyword;
 	private String sortBy = "latest";
-	private Integer minPrice;
-	private Integer maxPrice;
 	private String direction = "DESC";
+	@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+	private LocalDateTime createdAt;
 }

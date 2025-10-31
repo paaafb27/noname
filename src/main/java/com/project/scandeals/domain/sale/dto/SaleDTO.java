@@ -2,6 +2,7 @@ package com.project.scandeals.domain.sale.dto;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.project.scandeals.domain.sale.entity.Sale;
 
 import lombok.Builder;
@@ -30,6 +31,7 @@ public class SaleDTO {
 	private Integer viewCount;				/** 조회 수 */
 	private Integer likeCount;				/** 좋아요 수 */
 	private Integer commentCount;			/** 댓글 수 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
 	private LocalDateTime createdAt;		/** 등록일 */
 	
 	/**

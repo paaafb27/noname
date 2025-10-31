@@ -80,42 +80,66 @@ public class SaleService {
 	 * 세일 정보 필터 검색
 	 */
 	public PageResponseDTO<SaleDTO> getFilteredSaleList(SaleSearchRequestDTO requestDto) {
-		
-		log.info("DB 직접 조회 (필터 검색)");
+	    
+	    log.info("DB 직접 조회 (필터 검색) - 요청: {}", requestDto);
 
-		// Specification (동적 쿼리) 생성
-		Specification<Sale> spec = Specification.allOf(); // (항상 true)
+	    // Specification (동적 쿼리) 생성
+	    Specification<Sale> spec = Specification.where(null);
 
-		// 키워드 검색
-		if (requestDto.getKeyword() != null && !requestDto.getKeyword().isBlank()) {
-			spec = spec.and(SaleSearchCriteria.searchByTitle(requestDto.getKeyword().trim()));
-		}
-		
-		// 소스 사이트 필터
-		if (requestDto.getSourcesSiteList() != null && !requestDto.getSourcesSiteList().isEmpty()) {
-			spec = spec.and(SaleSearchCriteria.searchBySourceSite(requestDto.getSourcesSiteList()));
-		}
-
-		// 최소 가격 (price 컬럼 기준)
-		if (requestDto.getMinPrice() != null && requestDto.getMinPrice() > 0) {
-			spec = spec.and(SaleSearchCriteria.searchByMinPrice(requestDto.getMinPrice()));
-		}
-
-		// 최대 가격 (price 컬럼 기준)
-		if (requestDto.getMaxPrice() != null && requestDto.getMaxPrice() < 10000000) {
-			spec = spec.and(SaleSearchCriteria.searchByMaxPrice(requestDto.getMaxPrice()));
-		}
-		
-		// Sort (정렬) 생성
-		Sort sort = createSort(requestDto.getSortBy());
-
-		// Pageable 생성
-		Pageable pageable = PageRequest.of(requestDto.getPage(), requestDto.getSize(), sort);
-		
-		// Repository 조회
-		Page<Sale> salePage = saleRepository.findAll(spec, pageable);
-		
-		return PageResponseDTO.from(salePage.map(SaleDTO::from));
+	    // 키워드 검색
+	    if (requestDto.getKeyword() != null && !requestDto.getKeyword().isBlank()) {
+	        spec = spec.and(SaleSearchCriteria.searchByTitle(requestDto.getKeyword().trim()));
+	        log.info("필터 추가: 키워드 = {}", requestDto.getKeyword());
+	    }
+	    
+	    // 소스 사이트
+	    if (requestDto.getSourcesSiteList() != null && !requestDto.getSourcesSiteList().isEmpty()) {
+	        spec = spec.and(SaleSearchCriteria.searchBySourceSite(requestDto.getSourcesSiteList()));
+	        log.info("필터 추가: 사이트 = {}", requestDto.getSourcesSiteList());
+	    }
+	    
+	    // 카테고리
+	    if (requestDto.getCategoryId() != null) {
+	        spec = spec.and(SaleSearchCriteria.searchByCategory(requestDto.getCategoryId()));
+	        log.info("필터 추가: 카테고리 = {}", requestDto.getCategoryId());
+	    }
+	    
+	    // 정렬 옵션
+	    Sort.Direction direction = Sort.Direction.fromString(
+	        requestDto.getDirection() != null ? requestDto.getDirection() : "DESC"
+	    );
+	    
+	    String sortField;
+	    switch (requestDto.getSortBy() != null ? requestDto.getSortBy() : "latest") {
+	        case "likeCount":
+	            sortField = "likeCount";
+	            break;
+	        case "commentCount":
+	            sortField = "commentCount";
+	            break;
+	        case "crawledAt":
+	            sortField = "crawledAt";
+	            break;
+	        case "latest":
+	        default:
+	            sortField = "createdAt";
+	    }
+	    
+	    log.info("정렬: {} {}", sortField, direction);
+	    
+	    // Pageable 생성
+	    Pageable pageable = PageRequest.of(
+	        requestDto.getPage(), 
+	        requestDto.getSize(),
+	        Sort.by(direction, sortField)
+	    );
+	    
+	    // DB 조회
+	    Page<Sale> salePage = saleRepository.findAll(spec, pageable);
+	    
+	    log.info("조회 결과: {} / {}", salePage.getContent().size(), salePage.getTotalElements());
+	    
+	    return PageResponseDTO.from(salePage.map(SaleDTO::from));
 	}
 	
 	/**
@@ -129,12 +153,6 @@ public class SaleService {
 				// 인기순 = 좋아요 많은 순 + 최신순
 				return Sort.by(Sort.Direction.DESC, "likeCount")
 						   .and(Sort.by(Sort.Direction.DESC, "createdAt"));
-			case "lowPrice":
-				// 낮은 가격순 (price 필드 기준)
-				return Sort.by(Sort.Direction.ASC, "price");
-			case "highPrice":
-				// 높은 가격순 (price 필드 기준)
-				return Sort.by(Sort.Direction.DESC, "price");
 			case "latest":
 			default:
 				// 최신순

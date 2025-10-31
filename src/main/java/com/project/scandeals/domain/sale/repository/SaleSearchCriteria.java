@@ -26,20 +26,12 @@ public class SaleSearchCriteria {
         return (root, query, cb) -> root.get("sourceSite").in(sourceSiteList);
     }
 
-    /**
-     * 최소 가격 (>=)
-     */
-    public static Specification<Sale> searchByMinPrice(Integer minPrice) {
-        // Sale.price 필드 (숫자 타입)
-        return (root, query, cb) -> 
-            cb.greaterThanOrEqualTo(root.get("price"), minPrice);
-    }
-
-    /**
-     * 최대 가격 (<=)
-     */
-    public static Specification<Sale> searchByMaxPrice(Integer maxPrice) {
-        return (root, query, cb) -> 
-            cb.lessThanOrEqualTo(root.get("price"), maxPrice);
+    public static Specification<Sale> searchByCategory(Long categoryId) {
+        return (root, query, cb) -> {
+            if (categoryId == null) {
+                return cb.conjunction();
+            }
+            return cb.equal(root.get("category").get("id"), categoryId);
+        };
     }
 }

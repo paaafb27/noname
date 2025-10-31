@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScanDeals - 세일 정보 통합</title>
+    <title>ScanDeals</title>
     
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
-    
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
 <body class="bg-light">
@@ -16,13 +15,13 @@
     <div class="container-xl px-4">
         <div class="row">
 
-            <!-- 필터 사이드바 (스티키 적용) -->
-            <aside class="offcanvas-lg offcanvas-start col-lg-3 p-0 p-lg-4" tabindex="-1" id="filterOffcanvas" aria-labelledby="filterOffcanvasLabel">
+            <!-- 필터 사이드바 -->
+            <aside class="offcanvas-lg offcanvas-start col-lg-3 p-0 p-lg-4" tabindex="-1" id="filterOffcanvas">
                 <div class="offcanvas-header d-lg-none">
                     <h5 class="offcanvas-title" id="filterOffcanvasLabel">
                         <i class="bi bi-funnel"></i> 필터
                     </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterOffcanvas" aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#filterOffcanvas"></button>
                 </div>
                 
                 <div class="offcanvas-body p-0">
@@ -32,13 +31,12 @@
                         </h5>
                         
                         <div class="filter-section">
-                            <h6 class="filter-title">출처 사이트</h6>
-                            <!-- 가나다순 정렬 -->
-                            <div class="form-check"><input class="form-check-input" type="checkbox" value="RULIWEB" id="site-ruliweb" checked><label class="form-check-label" for="site-ruliweb">루리웹</label></div>
+                            <h6 class="filter-title text-center">출처</h6>
+                            <!--<div class="form-check"><input class="form-check-input" type="checkbox" value="RULIWEB" id="site-ruliweb" checked><label class="form-check-label" for="site-ruliweb">루리웹</label></div>-->
                             <div class="form-check"><input class="form-check-input" type="checkbox" value="PPOMPPU" id="site-ppomppu" checked><label class="form-check-label" for="site-ppomppu">뽐뿌</label></div>
                             <div class="form-check"><input class="form-check-input" type="checkbox" value="ARCALIVE" id="site-arcalive" checked><label class="form-check-label" for="site-arcalive">아카라이브</label></div>
                             <div class="form-check"><input class="form-check-input" type="checkbox" value="EOMISAE" id="site-eomisae" checked><label class="form-check-label" for="site-eomisae">어미새</label></div>
-                            <div class="form-check"><input class="form-check-input" type="checkbox" value="FMKOREA" id="site-fmkorea" checked><label class="form-check-label" for="site-fmkorea">에펨코리아</label></div>
+                            <!--<div class="form-check"><input class="form-check-input" type="checkbox" value="FMKOREA" id="site-fmkorea" checked><label class="form-check-label" for="site-fmkorea">에펨코리아</label></div>-->
                             <div class="form-check"><input class="form-check-input" type="checkbox" value="QUASARZONE" id="site-quasarzone" checked><label class="form-check-label" for="site-quasarzone">퀘이사존</label></div>
                         </div>
                         
@@ -75,19 +73,49 @@
     </div>
 
     <!-- 맨 위로 버튼 -->
-    <button id="scrollTopBtn" class="scroll-top-btn" title="맨 위로">
+    <button id="scrollTopBtn" class="scroll-top-btn" title="맨 위로" onclick="scrollToTop()">
         <i class="bi bi-arrow-up"></i>
     </button>
 
     <footer th:replace="~{layout/footer :: footer}"></footer>
 
+    <!-- ✅ Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- ✅ sale.js 먼저 로드 (defer 제거) -->
     <script th:src="@{/js/sale.js}"></script>
-    <script th:src="@{/js/scroll-top.js}"></script>
 
+    <!-- ✅ 초기화 스크립트 -->
     <script>
+        // 맨 위로 스크롤 함수
+        function scrollToTop() {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // 스크롤 감지
+        window.addEventListener('scroll', function() {
+            const scrollTopBtn = document.getElementById('scrollTopBtn');
+            if (window.pageYOffset > 300) {
+                scrollTopBtn.classList.add('show');
+            } else {
+                scrollTopBtn.classList.remove('show');
+            }
+        });
+
+        // ✅ DOMContentLoaded 이벤트
         document.addEventListener('DOMContentLoaded', function() {
-            loadSalesFromUrl(); 
+            console.log('🚀 페이지 로드 완료');
+            
+            // loadSalesFromUrl 함수 존재 확인
+            if (typeof loadSalesFromUrl === 'function') {
+                console.log('✅ loadSalesFromUrl 실행');
+                loadSalesFromUrl();
+            } else if (typeof loadSales === 'function') {
+                console.warn('⚠️ loadSalesFromUrl 없음, loadSales(0) 실행');
+                loadSales(0);
+            } else {
+                console.error('❌ sale.js 로드 실패!');
+            }
         });
 
         function deselectAllSites() {
@@ -100,8 +128,12 @@
             document.querySelectorAll('input[type="checkbox"][id^="site-"]').forEach(cb => {
                 cb.checked = true;
             });
-            document.getElementById('searchInputPc').value = ''; 
-            document.getElementById('searchInputMobile').value = ''; 
+            if (document.getElementById('searchInputPc')) {
+                document.getElementById('searchInputPc').value = '';
+            }
+            if (document.getElementById('searchInputMobile')) {
+                document.getElementById('searchInputMobile').value = '';
+            }
             loadSales(0);
         }
     </script>

@@ -39,7 +39,7 @@ public class CrawlDataController {
 			@RequestHeader("X-API-Key") String requestApiKey,
 			@RequestBody CrawlDataDTO crawlDataDTO
 	) {
-		// ✅ API Key 검증 임시 비활성화 (테스트용)
+		// API Key 검증 임시 비활성화 (테스트용)
 	    if (requestApiKey != null && !apiKey.equals(requestApiKey)) {
 	        log.warn("크롤링 API 인증 실패: 수신 키={}", requestApiKey);
 	        return ResponseEntity.status(401).body("Unauthorized");
@@ -59,14 +59,21 @@ public class CrawlDataController {
 				Sale sale = Sale.builder()
 						.title(item.getTitle())
 	                    .price_str(item.getPrice())			// DTO의 price(String)을 price_str에 매핑 (노출용)
+	                    .shippingFee(item.getShippingFee())
 	                    .storeName(item.getStoreName())
 	                    .productUrl(item.getProductUrl())
 	                    .imageUrl(item.getImageUrl())
 	                    .sourceSite(item.getSourceSite())
+	                    .commentCount(item.getReplyCount())
+	                    .likeCount(item.getLikeCount())
+	                    .createdAt(item.getCreatedAt())
 	                    .build();
 				
 				saleService.saveSale(sale);
                 savedCount++;
+                
+                log.info("save Sale : {} | {} | {} | {}", 
+                		sale.getTitle(), sale.getPrice_str(), sale.getSourceSite(), sale.getCreatedAt());
                 
 			} catch (Exception e) {
 				log.error("세일 저장 실패: {}", item.getTitle(), e);

@@ -83,8 +83,7 @@ public class Sale {
     @Column(name = "source_site", nullable = false, length = 50)
     private String sourceSite;
     
-    /**
-     * 배송비 */
+    /** 배송비 */
     @Column(name = "shipping_fee", length = 50)
     private String shippingFee;
 	
@@ -116,7 +115,7 @@ public class Sale {
     
     /** 생성일시 */
     @Column(name = "created_at", nullable = false, updatable = false)
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime createdAt;
 
     /** 수정일시 */
