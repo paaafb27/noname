@@ -108,11 +108,26 @@ class RuliwebScraper:
 
                 # 다음 페이지 확인 여부 판단
                 last_item = page_items[-1]
-                last_time = parse_time(last_item.get('crawledAt', ''))
+                crawled_at_str = last_item.get('createdAt', '')
+                print(f"last_item_time: {crawled_at_str}")
+
+                last_time = None
+                if crawled_at_str:
+                    try:
+                        # 'yyyy-MM-dd HH:mm:ss' 형식이면 직접 파싱
+                        if len(crawled_at_str) == 19 and crawled_at_str[10] == ' ':
+                            last_time = datetime.datetime.strptime(crawled_at_str, '%Y-%m-%d %H:%M:%S')
+                            last_time = last_time.replace(tzinfo=kst)
+                        else:
+                            # parse_time으로 파싱 (상대 시간 등)
+                            last_time = parse_time(crawled_at_str)
+                    except Exception as e:
+                        print(f"시간 파싱 중 오류: {e}")
+                        last_time = None
 
                 if not last_time:
                     print(f"시간 파싱 실패, 크롤링 종료")
-                    break
+                    break  # continue 대신 break로 종료
 
                 if last_time < cutoff_time:
                     print(f"마지막 게시글 {filter_minutes}분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
@@ -149,12 +164,11 @@ class RuliwebScraper:
     def _create_driver(self):
         options = Options()
 
-        # --- Fargate/Lambda 공통 옵션 (최소 옵션 유지) ---
-        print("(컨테이너 환경에서 실행 - WebDriverManager 사용)")
-
+        # User-Agent 설정 (공통)
         options.add_argument(
             '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
+        # 기본 옵션 (공통)
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -165,17 +179,21 @@ class RuliwebScraper:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        # [수정] 임시 디렉토리 옵션은 충돌 가능성이 있으므로 일단 제거하고 테스트
-        # options.add_argument('--user-data-dir=/tmp/chrome-user-data')
-        # options.add_argument('--disk-cache-dir=/tmp/chrome-cache-dir')
-        # options.add_argument('--data-path=/tmp/chrome-data-path')
-
         try:
-            print("WebDriverManager로 Chromedriver 경로 확인 및 드라이버 생성 시도...")
-            # 💡 [필수 수정] WebDriverManager 사용
-            #   Service 객체에 자동으로 드라이버 경로를 찾아 전달
-            service = Service('/usr/local/bin/chromedriver')
-            # service = Service('/usr/local/bin/chromedriver').install())
+            # 환경 자동 감지
+            import platform
+            is_windows = platform.system() == 'Windows'
+            
+            if is_windows:
+                print("(로컬 Windows 환경 감지 - WebDriverManager 자동 설치)")
+                # 로컬: WebDriverManager 사용
+                from webdriver_manager.chrome import ChromeDriverManager
+                service = Service(ChromeDriverManager().install())
+            else:
+                print("(Linux 컨테이너 환경 감지 - Fargate 경로 사용)")
+                # Fargate: 고정 경로
+                service = Service('/usr/local/bin/chromedriver')
+            
             driver = webdriver.Chrome(service=service, options=options)
             print("Chrome 드라이버 생성 성공!")
 
@@ -183,23 +201,12 @@ class RuliwebScraper:
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
             return driver
+            
         except Exception as e:
-            print(f"!!!!!!!! Chrome 드라이버 생성 실패 !!!!!!!!!!")
-            print(f"오류: {e}")
-            # WebDriverManager 로그 확인을 위해 traceback 추가
+            print(f"❌ Chrome 드라이버 생성 실패: {e}")
             import traceback
             traceback.print_exc()
-            raise # 에러 다시 발생
-        else:
-            print("  (로컬 환경에서 실행)")
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument(f'--user-agent={user_agent_string}')
-            options.add_argument('--window-size=1920,1080')
-            driver = webdriver.Chrome(options=options)
-
-        # 타임아웃 설정 (공통)
-        driver.set_page_load_timeout(60)
-        return driver
+            raise
 
     def _scrape_page(self, driver, page_num):
         """특정 페이지 크롤링"""
@@ -214,7 +221,7 @@ class RuliwebScraper:
 
                 try:
                     boardSelector = "//a[@class='text_center special_dot' and contains(., '핫딜')]"
-                    board_element = WebDriverWait(driver, 30).until(
+                    board_element = WebDriverWait(driver, 60).until(
                         EC.presence_of_element_located((By.XPATH, boardSelector))
                     )
                     

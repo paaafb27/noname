@@ -1,27 +1,160 @@
 ﻿"""
-뽐뿌 크롤러
+뽐뿌 크롤러 로컬 테스트 스크립트
 
-URL: https://www.ppomppu.co.kr/zboard/zboard.php?id=ppomppu
-필터링: 공지, 쇼핑뽐뿌, 핫딜, 쇼핑포럼 제외
-판매처: <em class="subject_preface"> 또는 제목에서 추출
+실행 방법:
+1. PowerShell에서: .\test_ppomppu_local.ps1
+2. 또는 직접: python test_ppomppu_scraper.py
 """
+import json
+import datetime
+import re
 import sys
 import os
-import re
-from bs4 import BeautifulSoup
-from datetime import datetime, timezone, timedelta
+
+# ========================================
+# common 모듈 Mock (테스트용)
+# ========================================
+
+def log_item(item):
+    """테스트용 로그 출력"""
+    print(f"  - {item.get('title', '')[:50]}... | {item.get('storeName', '')} | {item.get('crawledAt', '')}")
+
+
+def clean_store_name(name):
+    """판매처 이름 정리"""
+    if not name:
+        return None
+
+    # 괄호와 내용 제거
+    name = re.sub(r'\[.*?\]', '', name)
+    name = re.sub(r'\(.*?\)', '', name)
+
+    # 특수문자 제거 및 공백 정리
+    name = re.sub(r'[^\w\s가-힣]', '', name)
+    name = name.strip()
+
+    return name if name else None
+
+
+def parse_time(time_text):
+    """
+    시간 텍스트를 datetime 객체로 변환
+    형식: "HH:MM:SS" 또는 "MM/DD HH:MM:SS"
+    """
+    if not time_text:
+        return None
+
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    now = datetime.datetime.now(kst)
+
+    try:
+        # "HH:MM:SS" 형식 (오늘)
+        if len(time_text.split(':')) == 3 and '/' not in time_text:
+            time_obj = datetime.datetime.strptime(time_text, '%H:%M:%S')
+            result = now.replace(hour=time_obj.hour, minute=time_obj.minute, second=time_obj.second, microsecond=0)
+            return result
+
+        # "MM/DD HH:MM:SS" 형식
+        elif '/' in time_text:
+            parts = time_text.split(' ')
+            date_part = parts[0]  # MM/DD
+            time_part = parts[1] if len(parts) > 1 else "00:00:00"
+
+            month, day = map(int, date_part.split('/'))
+            time_obj = datetime.datetime.strptime(time_part, '%H:%M:%S')
+
+            # 현재 연도 사용
+            result = now.replace(
+                month=month,
+                day=day,
+                hour=time_obj.hour,
+                minute=time_obj.minute,
+                second=time_obj.second,
+                microsecond=0
+            )
+
+            # 미래 날짜면 작년으로 설정
+            if result > now:
+                result = result.replace(year=now.year - 1)
+
+            return result
+
+    except Exception as e:
+        print(f"시간 파싱 실패 ({time_text}): {e}")
+        return None
+
+
+def to_iso8601(dt):
+    """datetime 객체를 ISO 8601 형식 문자열로 변환"""
+    if not dt:
+        return None
+    return dt.isoformat()
+
+
+def filter_by_time(items, minutes=30):
+    """
+    주어진 시간(분) 이내에 작성된 게시글만 필터링
+    """
+    kst = datetime.timezone(datetime.timedelta(hours=9))
+    now = datetime.datetime.now(kst)
+    cutoff_time = now - datetime.timedelta(minutes=minutes)
+
+    filtered = []
+    for item in items:
+        crawled_at = item.get('crawledAt')
+        if not crawled_at:
+            continue
+
+        post_time = datetime.datetime.fromisoformat(crawled_at)
+        if post_time >= cutoff_time:
+            filtered.append(item)
+
+    return filtered
+
+
+def extract_number_from_text(text):
+    """텍스트에서 숫자 추출"""
+    if not text:
+        return None
+
+    # 쉼표 제거
+    text = text.replace(',', '')
+
+    # 숫자만 추출
+    match = re.search(r'\d+', text)
+    if match:
+        return int(match.group())
+
+    return None
+
+
+def extract_shipping_fee(text):
+    """배송비 추출"""
+    if not text:
+        return None
+
+    if any(kw in text for kw in ['무배', '무료', '무료배송', '공짜', '0원']):
+        return "무료배송"
+
+    number = extract_number_from_text(text)
+    if number:
+        return str(number)
+
+    return text
+
+
+# ========================================
+# scraper.py 내용 복사
+# ========================================
+
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from bs4 import BeautifulSoup
 
-from common.log_util import log_item
-from common.store_extractor import clean_store_name
-
-# common 모듈
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 class PpomppuScraper:
 
@@ -49,13 +182,10 @@ class PpomppuScraper:
         page_num = 1
         driver = None
 
+        kst = datetime.timezone(datetime.timedelta(hours=9))
         filter_minutes = self.filter_minutes
-        # 타임존 및 시간 기준 설정 (KST = UTC+9)
-        kst = timezone(timedelta(hours=9))
-        now = datetime.now(kst)
-        cutoff_time = now - timedelta(minutes=filter_minutes)
-        print(f"크롤링 실행 시간 (KST): {now.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"수집 기준 시간 (KST): {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        now = datetime.datetime.now(kst)
+        cutoff_time = now - datetime.timedelta(minutes=filter_minutes)
 
         try:
             driver = self._create_driver()
@@ -64,7 +194,7 @@ class PpomppuScraper:
             while page_num <= self.max_pages:
                 print(f"\n{page_num}페이지 크롤링...")
 
-                # 같은 driver 재사용
+                # ✅ 같은 driver 재사용
                 page_items = self._scrape_page(driver, page_num)
 
                 if not page_items:
@@ -72,9 +202,7 @@ class PpomppuScraper:
                     break
 
                 # 30분 이내 작성된 게시글 필터링
-                # page_filtered = filter_by_time(page_items, minutes=filter_minutes)
-                page_filtered = self.filter_by_time_aware(page_items, cutoff_time)
-
+                page_filtered = filter_by_time(page_items, minutes=filter_minutes)
                 if page_filtered:
                     print(f"수집 대상 {len(page_filtered)}개:")
                     for filtered_item in page_filtered:
@@ -84,35 +212,18 @@ class PpomppuScraper:
                 print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
 
                 # 다음 페이지 확인 여부 판단
-                last_item_in_page = page_items[-1]
-                last_crawled_at_str = last_item_in_page.get('createdAt')  # 값이 없으면 None
+                last_item = page_items[-1]
+                last_time = parse_time(last_item.get('crawledAt', ''))
 
-                if not last_crawled_at_str:
-                    print(f" [경고] 페이지 마지막 게시글의 시간 정보가 없어 다음 페이지를 계속 확인합니다.")
+                if not last_time:
+                    print(f"시간 파싱 실패, 크롤링 종료")
+                    break
 
-                else:
-                    try:
-                        # 크롤링된 시간 문자열('YYYY-MM-DD HH:mm:ss')을 Timezone이 없는(Naive) datetime 객체로 파싱
-                        last_time_naive = datetime.strptime(last_crawled_at_str, '%Y-%m-%d %H:%M:%S')
-                        # 파싱된 Naive 객체에 KST 타임존 정보를 부여하여 Aware 객체로 만듦
-                        last_time_aware = last_time_naive.replace(tzinfo=kst)
+                if last_time < cutoff_time:
+                    print(f"마지막 게시글 {filter_minutes}분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
+                    break
 
-                        # 이제 Aware 객체끼리 안전하게 비교 가능
-                        if last_time_aware < cutoff_time:
-                            print(f"페이지의 마지막 게시글 시간이 마지노선을 초과하여 크롤링을 종료합니다.")
-                            print(
-                                f" (마지막 글 시간: {last_time_aware.strftime('%H:%M:%S')} < 마지노선: {cutoff_time.strftime('%H:%M:%S')})")
-                            break  # 루프 탈출
-                        else:
-                            print(f"페이지의 마지막 게시글 시간이 마지노선 이내이므로 다음 페이지를 확인합니다.")
-                            print(
-                                f" (마지막 글 시간: {last_time_aware.strftime('%H:%M:%S')} >= 마지노선: {cutoff_time.strftime('%H:%M:%S')})")
-
-                    except ValueError:
-                        # 'YYYY-MM-DD HH:mm:ss' 형식이 아닌 경우 (이론상 발생하면 안 됨)
-                        print(f" [오류] createdAt 필드('{last_crawled_at_str}')의 형식이 올바르지 않아 다음 페이지를 계속 확인합니다.")
-                    except Exception as e:
-                        print(f" [오류] 알 수 없는 시간 처리 오류: {e}. 다음 페이지를 계속 확인합니다.")
+                print(f"마지막 게시글 {filter_minutes}분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
 
                 # 페이지 간 메모리 정리
                 driver.execute_script("window.stop();")
@@ -141,48 +252,39 @@ class PpomppuScraper:
                     print(f"Chrome 종료 중 에러: {e}")
 
     def _create_driver(self):
+        """로컬 환경용 드라이버 생성"""
         options = Options()
 
-        # User-Agent 설정 (공통)
+        # 로컬 테스트용 설정
+        print("로컬 환경에서 Chrome 드라이버 생성 중...")
+
+        # User-Agent 설정
         options.add_argument(
             '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
-        # 기본 옵션 (공통)
-        # options.add_argument('--headless=new')
-        options.add_argument('--no-sandbox')
-        options.add_argument('--disable-dev-shm-usage')
-        options.add_argument('--disable-gpu')
+        # 일반 옵션
+        options.add_argument('--disable-blink-features=AutomationControlled')
+        options.add_argument('--window-size=1920,1080')
         options.add_argument('--referer=https://www.google.com/')
 
         # 자동화 감지 우회
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
+        # headless 모드 (테스트 시 주석 처리하면 브라우저 확인 가능)
+        # options.add_argument('--headless=new')
+
         try:
-            # 환경 자동 감지
-            import platform
-            is_windows = platform.system() == 'Windows'
-            
-            if is_windows:
-                print("(로컬 Windows 환경 감지 - WebDriverManager 자동 설치)")
-                # 로컬: WebDriverManager 사용
-                from webdriver_manager.chrome import ChromeDriverManager
-                service = Service(ChromeDriverManager().install())
-            else:
-                print("(Linux 컨테이너 환경 감지 - Fargate 경로 사용)")
-                # Fargate: 고정 경로
-                service = Service('/usr/local/bin/chromedriver')
-            
-            driver = webdriver.Chrome(service=service, options=options)
-            print("✅ Chrome 드라이버 생성 성공!")
+            driver = webdriver.Chrome(options=options)
+            print("Chrome 드라이버 생성 성공!")
 
             # WebDriver 속성 숨기기
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
             return driver
-            
+
         except Exception as e:
-            print(f"❌ Chrome 드라이버 생성 실패: {e}")
+            print(f"Chrome 드라이버 생성 실패: {e}")
             import traceback
             traceback.print_exc()
             raise
@@ -260,10 +362,6 @@ class PpomppuScraper:
         if numb_cell and numb_cell.find('img'):
             return True
 
-        hot_pop = row.select('[class*="hotpop_bg_color"]')
-        if hot_pop:
-            return True
-
         return False
 
     def _extract_item(self, row):
@@ -337,42 +435,13 @@ class PpomppuScraper:
                 dislike = int(match.group(2))
                 like_count = like + dislike
 
-
-        # 등록 시간 (YYYY-MM-DD HH:mm:ss 형식으로 변환)
-        # 1. time 요소를 찾는다.
+        # 등록 시간
+        time = None
         time_element = row.select_one('time.baseList-time')
-
-        # 2. 부모인 <td>를 찾는다.
         if time_element:
-            time_cell = time_element.find_parent('td')
-
-            try:
-                # 3. title 확인.
-                if time_cell and time_cell.has_attr('title'):
-                    title_time_text = time_cell['title']
-                    time_obj = datetime.strptime(title_time_text, '%y.%m.%d %H:%M:%S')
-                    created_at = time_obj.strftime('%Y-%m-%d %H:%M:%S')
-
-                # 4. title이 없다면 <time> 시도
-                else:
-                    time_text = time_element.get_text(strip=True)
-                    now = datetime.now()
-
-                    if time_text.count(':') == 2:
-                        hour, minute, second = map(int, time_text.split(':'))
-                        time_obj = now.replace(hour=hour, minute=minute, second=second, microsecond=0)
-                    elif time_text.count('/') == 2:
-                        time_obj = datetime.strptime(time_text, '%y/%m/%d')
-                    else:
-                        time_obj = None
-
-                    if time_obj:
-                        created_at = time_obj.strftime('%Y-%m-%d %H:%M:%S')
-
-            except Exception as e:
-                error_source = time_cell.get('title', time_element.get_text(strip=True)) if time_cell else "N/A"
-                print(f"  [ERROR] 시간 파싱 중 오류 발생: '{error_source}', 오류: {e}")
-                created_at = None
+            time_text = time_element.get_text(strip=True)
+            time_obj = parse_time(time_text)
+            time = to_iso8601(time_obj) if time_obj else None
 
         # 카테고리
         category_element = row.select_one('small.baseList-small')
@@ -380,7 +449,6 @@ class PpomppuScraper:
         category = clean_store_name(category)
 
         # URL
-        # product_url = self.main_url + title_element['href']
         href = title_element.get('href', '')
         if not href:
             print(f" href 속성 없음 (제목: {raw_title[:30]}...)")
@@ -390,8 +458,6 @@ class PpomppuScraper:
         # 이미지 url
         image_element = row.select_one('a.baseList-thumb img')
         image_url = image_element.get('src') if image_element else None
-
-        print(f"{title} : {created_at}")
 
         return {
             'title': title,
@@ -404,38 +470,52 @@ class PpomppuScraper:
             'replyCount': reply_count,
             'likeCount': like_count,
             'sourceSite': self.source_site,
-            'createdAt': created_at
+            'crawledAt': time
         }
 
-    def filter_by_time_aware(self, items, cutoff_time):
-        """
-        Timezone을 인지(aware)하여 아이템 리스트를 필터링하는 함수.
 
-        :param items: 크롤링된 아이템 딕셔너리의 리스트
-        :param cutoff_time: Timezone 정보가 포함된(aware) 기준 시간 datetime 객체
-        :return: 필터링된 아이템 리스트
-        """
-        kst = timezone(timedelta(hours=9))
+# ========================================
+# 메인 실행
+# ========================================
 
-        filtered_list = []
-        for item in items:
-            created_at_str = item.get('createdAt')
-            if not created_at_str:
-                continue  # 시간 정보 없으면 건너뛰기
+if __name__ == "__main__":
+    print("=" * 60)
+    print("뽐뿌 크롤러 로컬 테스트")
+    print("=" * 60)
+    print()
 
-            try:
-                # 크롤링된 시간 문자열을 Timezone 없는(Naive) datetime 객체로 파싱
-                item_time_naive = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
+    try:
+        # 크롤러 실행
+        scraper = PpomppuScraper()
+        results = scraper.scrape()
 
-                # 파싱된 Naive 객체에 KST 타임존 정보를 부여하여 Aware 객체로 만듦
-                item_time_aware = item_time_naive.replace(tzinfo=kst)
+        print("\n" + "=" * 60)
+        print("크롤링 결과 요약")
+        print("=" * 60)
+        print(f"총 수집 항목: {len(results)}개")
 
-                # Aware 객체끼리 비교하여 최신 글만 리스트에 추가
-                if item_time_aware >= cutoff_time:
-                    filtered_list.append(item)
+        if results:
+            print("\n최근 5개 항목:")
+            for i, item in enumerate(results[:5], 1):
+                print(f"\n{i}. {item['title'][:50]}...")
+                print(f"   판매처: {item.get('storeName', 'N/A')}")
+                print(f"   가격: {item.get('price', 'N/A')}원")
+                print(f"   배송비: {item.get('shippingFee', 'N/A')}")
+                print(f"   시간: {item.get('crawledAt', 'N/A')}")
 
-            except Exception as e:
-                print(f"  [FILTER-ERROR] '{created_at_str}' 시간 필터링 중 오류: {e}")
-                continue
+            # 결과를 JSON 파일로 저장
+            output_file = 'ppomppu_test_result.json'
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(results, f, ensure_ascii=False, indent=2)
+            print(f"\n전체 결과가 '{output_file}' 파일로 저장되었습니다.")
 
-        return filtered_list
+        print("\n" + "=" * 60)
+        print("테스트 완료!")
+        print("=" * 60)
+
+    except KeyboardInterrupt:
+        print("\n\n사용자에 의해 중단되었습니다.")
+    except Exception as e:
+        print(f"\n오류 발생: {e}")
+        import traceback
+        traceback.print_exc()

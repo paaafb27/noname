@@ -3,9 +3,8 @@ ARCALIVE 크롤러
 
 URL: https://arca.live/b/hotdeal
 """
-import datetime
-import time
 
+from datetime import datetime, timezone, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
@@ -20,6 +19,7 @@ from common.number_extractor import (
     extract_comment_count_from_title,
     format_price
 )
+from common.parse_universal_time import _parse_universal_time
 from bs4 import BeautifulSoup
 import sys
 import os
@@ -61,10 +61,13 @@ class ArcaliveScraper:
         page_num = 1
         driver = None
 
-        kst = datetime.timezone(datetime.timedelta(hours=9))
         filter_minutes = self.filter_minutes
-        now = datetime.datetime.now(kst)
-        cutoff_time = now - datetime.timedelta(minutes=filter_minutes)
+        # 타임존 및 시간 기준 설정 (KST = UTC+9)
+        kst = timezone(timedelta(hours=9))
+        now = datetime.now(kst)
+        cutoff_time = now - timedelta(minutes=filter_minutes)
+        print(f"크롤링 실행 시간 (KST): {now.strftime('%Y-%m-%d %H:%M:%S')}")
+        print(f"수집 기준 시간 (KST): {cutoff_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
         try:
             driver = self._create_driver()
@@ -81,7 +84,9 @@ class ArcaliveScraper:
                     break
 
                 # 30분 이내 작성된 게시글 필터링
-                page_filtered = filter_by_time(page_items, minutes=filter_minutes)
+                # page_filtered = filter_by_time(page_items, minutes=filter_minutes)
+                page_filtered = self.filter_by_time_aware(page_items, cutoff_time)
+
                 if page_filtered:
                     print(f"수집 대상 {len(page_filtered)}개:")
                     for filtered_item in page_filtered:
@@ -91,22 +96,35 @@ class ArcaliveScraper:
                 print(f"{page_num}페이지: {len(page_items)}개 → 필터링 {len(page_filtered)}개")
 
                 # 다음 페이지 확인 여부 판단
-                last_item = page_items[-1]
-                last_time = parse_time(last_item.get('crawledAt', ''))
+                last_item_in_page = page_items[-1]
+                last_crawled_at_str = last_item_in_page.get('createdAt')  # 값이 없으면 None
 
-                if not last_time:
-                    print(f"마지막 게시글 시간 파싱 실패")
-                    print(f"다음 페이지도 확인")
-                    driver.execute_script("window.stop();")
-                    driver.delete_all_cookies()
-                    page_num += 1
-                    continue
+                if not last_crawled_at_str:
+                    print(f" [경고] 페이지 마지막 게시글의 시간 정보가 없어 다음 페이지를 계속 확인합니다.")
 
-                if last_time < cutoff_time:
-                    print(f"마지막 게시글 {filter_minutes}분 초과 ({last_time.strftime('%H:%M:%S')}), 종료")
-                    break
+                else:
+                    try:
+                        # 크롤링된 시간 문자열('YYYY-MM-DD HH:mm:ss')을 Timezone이 없는(Naive) datetime 객체로 파싱
+                        last_time_naive = datetime.strptime(last_crawled_at_str, '%Y-%m-%d %H:%M:%S')
+                        # 파싱된 Naive 객체에 KST 타임존 정보를 부여하여 Aware 객체로 만듦
+                        last_time_aware = last_time_naive.replace(tzinfo=kst)
 
-                print(f"→ 마지막 게시글 {filter_minutes}분 이내 ({last_time.strftime('%H:%M:%S')}), 다음 페이지 확인")
+                        # 이제 Aware 객체끼리 안전하게 비교 가능
+                        if last_time_aware < cutoff_time:
+                            print(f"페이지의 마지막 게시글 시간이 마지노선을 초과하여 크롤링을 종료합니다.")
+                            print(
+                                f" (마지막 글 시간: {last_time_aware.strftime('%H:%M:%S')} < 마지노선: {cutoff_time.strftime('%H:%M:%S')})")
+                            break  # 루프 탈출
+                        else:
+                            print(f"페이지의 마지막 게시글 시간이 마지노선 이내이므로 다음 페이지를 확인합니다.")
+                            print(
+                                f" (마지막 글 시간: {last_time_aware.strftime('%H:%M:%S')} >= 마지노선: {cutoff_time.strftime('%H:%M:%S')})")
+
+                    except ValueError:
+                        # 'YYYY-MM-DD HH:mm:ss' 형식이 아닌 경우 (이론상 발생하면 안 됨)
+                        print(f" [오류] createdAt 필드('{last_crawled_at_str}')의 형식이 올바르지 않아 다음 페이지를 계속 확인합니다.")
+                    except Exception as e:
+                        print(f" [오류] 알 수 없는 시간 처리 오류: {e}. 다음 페이지를 계속 확인합니다.")
 
                 # 페이지 간 메모리 정리
                 driver.execute_script("window.stop();")
@@ -137,11 +155,11 @@ class ArcaliveScraper:
     def _create_driver(self):
         options = Options()
 
-        # --- Fargate/Lambda 공통 옵션 (최소 옵션 유지) ---
-        print("(컨테이너 환경에서 실행 - WebDriverManager 사용)")
+        # User-Agent 설정 (공통)
+        options.add_argument(
+            '--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
 
-        options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-
+        # 기본 옵션 (공통)
         options.add_argument('--headless=new')
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
@@ -152,42 +170,34 @@ class ArcaliveScraper:
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
 
-        # [수정] 임시 디렉토리 옵션은 충돌 가능성이 있으므로 일단 제거하고 테스트
-        # options.add_argument('--user-data-dir=/tmp/chrome-user-data')
-        # options.add_argument('--disk-cache-dir=/tmp/chrome-cache-dir')
-        # options.add_argument('--data-path=/tmp/chrome-data-path')
-
         try:
-            print("WebDriverManager로 Chromedriver 경로 확인 및 드라이버 생성 시도...")
-            # 💡 [필수 수정] WebDriverManager 사용
-            #   Service 객체에 자동으로 드라이버 경로를 찾아 전달
-            service = Service('/usr/local/bin/chromedriver')
-            # service = Service('/usr/local/bin/chromedriver').install())
+            # ✅ 환경 자동 감지
+            import platform
+            is_windows = platform.system() == 'Windows'
+            
+            if is_windows:
+                print("(로컬 Windows 환경 감지 - WebDriverManager 자동 설치)")
+                # 로컬: WebDriverManager 사용
+                from webdriver_manager.chrome import ChromeDriverManager
+                service = Service(ChromeDriverManager().install())
+            else:
+                print("(Linux 컨테이너 환경 감지 - Fargate 경로 사용)")
+                # Fargate: 고정 경로
+                service = Service('/usr/local/bin/chromedriver')
+            
             driver = webdriver.Chrome(service=service, options=options)
-            print("Chrome 드라이버 생성 성공!")
+            print("✅ Chrome 드라이버 생성 성공!")
 
             # WebDriver 속성 숨기기
             driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
             driver.set_page_load_timeout(60)
             return driver
-
+            
         except Exception as e:
-            print(f"!!!!!!!! Chrome 드라이버 생성 실패 !!!!!!!!!!")
-            print(f"오류: {e}")
-            # WebDriverManager 로그 확인을 위해 traceback 추가
+            print(f"❌ Chrome 드라이버 생성 실패: {e}")
             import traceback
             traceback.print_exc()
-            raise # 에러 다시 발생
-        else:
-            print("  (로컬 환경에서 실행)")
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_argument(f'--user-agent={user_agent_string}')
-            options.add_argument('--window-size=1920,1080')
-            driver = webdriver.Chrome(options=options)
-
-        # 타임아웃 설정 (공통)
-        driver.set_page_load_timeout(60)
-        return driver
+            raise
 
     def _scrape_page(self, driver, page_num):
         """
@@ -296,16 +306,21 @@ class ArcaliveScraper:
         like_count = extract_number_from_text(like_count)
 
         # 등록 시간
-        time_element = row.select_one('time')
+        created_at = None
+        time_element = row.select_one('time[datetime]')
+
         if time_element:
-            datetime_attr = time_element.get('datetime')
-            if datetime_attr:
-                time = to_iso8601(parse_time(datetime_attr))
-            else:
-                time_text = time_element.get_text(strip=True)
-                time = to_iso8601(parse_time(time_text))
-        else:
-            time = None
+            # 1순위: 'datetime' 속성 값 (가장 정확한 정보)
+            iso_time_str = time_element.get('datetime')
+            time_obj = _parse_universal_time(iso_time_str)
+
+            # 2순위: 'datetime' 속성 파싱 실패 시, 보이는 텍스트로 재시도
+            if not time_obj:
+                visible_time_text = time_element.get_text(strip=True)
+                time_obj = _parse_universal_time(visible_time_text)
+
+            if time_obj:
+                created_at = time_obj.strftime('%Y-%m-%d %H:%M:%S')
 
         # 카테고리
         category_element = row.select_one('a.badge')
@@ -330,5 +345,38 @@ class ArcaliveScraper:
             'replyCount': reply_count,
             'likeCount': like_count,
             'sourceSite': self.source_site,
-            'crawledAt': time
+            'createdAt': created_at
         }
+
+    def filter_by_time_aware(self, items, cutoff_time):
+        """
+        Timezone을 인지(aware)하여 아이템 리스트를 필터링하는 함수.
+
+        :param items: 크롤링된 아이템 딕셔너리의 리스트
+        :param cutoff_time: Timezone 정보가 포함된(aware) 기준 시간 datetime 객체
+        :return: 필터링된 아이템 리스트
+        """
+        kst = timezone(timedelta(hours=9))
+
+        filtered_list = []
+        for item in items:
+            created_at_str = item.get('createdAt')
+            if not created_at_str:
+                continue  # 시간 정보 없으면 건너뛰기
+
+            try:
+                # 크롤링된 시간 문자열을 Timezone 없는(Naive) datetime 객체로 파싱
+                item_time_naive = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
+
+                # 파싱된 Naive 객체에 KST 타임존 정보를 부여하여 Aware 객체로 만듦
+                item_time_aware = item_time_naive.replace(tzinfo=kst)
+
+                # Aware 객체끼리 비교하여 최신 글만 리스트에 추가
+                if item_time_aware >= cutoff_time:
+                    filtered_list.append(item)
+
+            except Exception as e:
+                print(f"  [FILTER-ERROR] '{created_at_str}' 시간 필터링 중 오류: {e}")
+                continue
+
+        return filtered_list

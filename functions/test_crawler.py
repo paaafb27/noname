@@ -1,6 +1,20 @@
 """
 사이트별 로컬 테스트 스크립트
 각 사이트 크롤러를 독립적으로 테스트
+
+실행 방법
+1) 가상환경 활성화
+bashcd ~/scanDeals/crawler
+source venv/bin/activate  # Linux/Mac
+# 또는
+venv\Scripts\activate     # Windows
+
+2) 필요한 패키지 설치
+bashpip install playwright beautifulsoup4 lxml requests
+playwright install chromium
+
+3) 크롤러 실행
+bashpython test_crawler.py
 """
 
 import sys
